@@ -314,4 +314,164 @@ defmodule PhpToElixir.ParserTest do
                {:type_cast, :int, {:variable, "x"}}
     end
   end
+
+  describe "Step 12: assignment statements" do
+    test "simple variable assignment" do
+      assert parse_stmt!("<?php $x = 'val';") ==
+               {:assign, {:variable, "x"}, {:string, "val"}}
+    end
+
+    test "array key assignment" do
+      assert parse_stmt!("<?php $our['key'] = 'val';") ==
+               {:assign, {:array_access, {:variable, "our"}, {:string, "key"}}, {:string, "val"}}
+    end
+
+    test "assignment with expression value" do
+      assert parse_stmt!("<?php $x = $a . $b;") ==
+               {:assign, {:variable, "x"}, {:binary_op, :., {:variable, "a"}, {:variable, "b"}}}
+    end
+
+    test "nested array assignment" do
+      assert parse_stmt!("<?php $data['a']['b'] = 42;") ==
+               {:assign,
+                {:array_access, {:array_access, {:variable, "data"}, {:string, "a"}},
+                 {:string, "b"}}, {:integer, 42}}
+    end
+  end
+
+  describe "Step 13: if/elseif/else (braced)" do
+    test "simple if" do
+      assert parse_stmt!("<?php if ($x == 'y') { $a = 1; }") ==
+               {:if, {:binary_op, :==, {:variable, "x"}, {:string, "y"}},
+                [{:assign, {:variable, "a"}, {:integer, 1}}], [], nil}
+    end
+
+    test "if/else" do
+      assert parse_stmt!("<?php if ($x) { $a = 1; } else { $b = 2; }") ==
+               {:if, {:variable, "x"}, [{:assign, {:variable, "a"}, {:integer, 1}}], [],
+                [{:assign, {:variable, "b"}, {:integer, 2}}]}
+    end
+
+    test "if/elseif/else" do
+      input = "<?php if ($x) { $a = 1; } elseif ($y) { $b = 2; } else { $c = 3; }"
+
+      assert parse_stmt!(input) ==
+               {:if, {:variable, "x"}, [{:assign, {:variable, "a"}, {:integer, 1}}],
+                [{{:variable, "y"}, [{:assign, {:variable, "b"}, {:integer, 2}}]}],
+                [{:assign, {:variable, "c"}, {:integer, 3}}]}
+    end
+
+    test "multiple elseif clauses" do
+      input =
+        "<?php if ($a) { $x = 1; } elseif ($b) { $x = 2; } elseif ($c) { $x = 3; } else { $x = 4; }"
+
+      {:if, _, _, elseifs, else_body} = parse_stmt!(input)
+      assert length(elseifs) == 2
+      assert else_body != nil
+    end
+  end
+
+  describe "Step 14: if/elseif/else (braceless)" do
+    test "braceless if with single statement" do
+      assert parse_stmt!("<?php if ($x) $a = 1;") ==
+               {:if, {:variable, "x"}, [{:assign, {:variable, "a"}, {:integer, 1}}], [], nil}
+    end
+
+    test "braceless if/else" do
+      assert parse_stmt!("<?php if ($x) $a = 1; else $b = 2;") ==
+               {:if, {:variable, "x"}, [{:assign, {:variable, "a"}, {:integer, 1}}], [],
+                [{:assign, {:variable, "b"}, {:integer, 2}}]}
+    end
+  end
+
+  describe "Step 15: foreach" do
+    test "foreach with key and value" do
+      assert parse_stmt!("<?php foreach ($arr as $k => $v) { $x = $v; }") ==
+               {:foreach, {:variable, "arr"}, {:variable, "k"}, {:variable, "v"},
+                [{:assign, {:variable, "x"}, {:variable, "v"}}]}
+    end
+
+    test "foreach without key" do
+      assert parse_stmt!("<?php foreach ($arr as $v) { $x = $v; }") ==
+               {:foreach, {:variable, "arr"}, nil, {:variable, "v"},
+                [{:assign, {:variable, "x"}, {:variable, "v"}}]}
+    end
+
+    test "foreach over array access" do
+      assert parse_stmt!("<?php foreach ($data['items'] as $item) { $x = $item; }") ==
+               {:foreach, {:array_access, {:variable, "data"}, {:string, "items"}}, nil,
+                {:variable, "item"}, [{:assign, {:variable, "x"}, {:variable, "item"}}]}
+    end
+  end
+
+  describe "Step 16: switch/case" do
+    test "switch with cases and default" do
+      input = """
+      <?php switch ($x) {
+        case 'a':
+          $y = 1;
+          break;
+        case 'b':
+          $y = 2;
+          break;
+        default:
+          $y = 3;
+      }
+      """
+
+      assert parse_stmt!(input) ==
+               {:switch, {:variable, "x"},
+                [
+                  {:case_clause, {:string, "a"},
+                   [{:assign, {:variable, "y"}, {:integer, 1}}, {:break}]},
+                  {:case_clause, {:string, "b"},
+                   [{:assign, {:variable, "y"}, {:integer, 2}}, {:break}]},
+                  {:case_clause, :default, [{:assign, {:variable, "y"}, {:integer, 3}}]}
+                ]}
+    end
+
+    test "switch with single case" do
+      input = "<?php switch ($x) { case 'a': $y = 1; break; }"
+
+      assert parse_stmt!(input) ==
+               {:switch, {:variable, "x"},
+                [
+                  {:case_clause, {:string, "a"},
+                   [{:assign, {:variable, "y"}, {:integer, 1}}, {:break}]}
+                ]}
+    end
+  end
+
+  describe "Step 17: break" do
+    test "break statement" do
+      assert parse_stmt!("<?php break;") == {:break}
+    end
+  end
+
+  describe "Step 18: program wrapper" do
+    test "full program with open and close tags" do
+      assert parse!("<?php $x = 1; ?>") ==
+               {:program, [{:assign, {:variable, "x"}, {:integer, 1}}]}
+    end
+
+    test "multiple statements" do
+      ast = parse!("<?php $x = 1; $y = 2;")
+
+      assert {:program,
+              [
+                {:assign, {:variable, "x"}, {:integer, 1}},
+                {:assign, {:variable, "y"}, {:integer, 2}}
+              ]} = ast
+    end
+
+    test "program without close tag" do
+      assert {:program, [{:assign, {:variable, "x"}, {:integer, 1}}]} =
+               parse!("<?php $x = 1;")
+    end
+
+    test "error on invalid syntax" do
+      {:ok, tokens} = Lexer.tokenize("<?php )")
+      assert {:error, _reason} = Parser.parse(tokens)
+    end
+  end
 end
