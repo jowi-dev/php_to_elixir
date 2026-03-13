@@ -105,14 +105,11 @@ defmodule PhpToElixir.Emitter do
   end
 
   defp emit_statement({:foreach, collection, key_var, value_var, body}) do
-    pattern =
-      case key_var do
-        nil -> "#{emit_expr(value_var)}, our"
-        _ -> "{#{emit_expr(key_var)}, #{emit_expr(value_var)}}, our"
-      end
-
-    body_str = emit_body(body)
-    "our = Enum.reduce(#{emit_expr(collection)}, our, fn #{pattern} ->\n#{body_str}\nour\nend)"
+    if has_break?(body) do
+      emit_foreach_with_break(collection, key_var, value_var, body)
+    else
+      emit_foreach_reduce(collection, key_var, value_var, body)
+    end
   end
 
   defp emit_statement({:switch, expr, clauses}) do
@@ -257,4 +254,55 @@ defmodule PhpToElixir.Emitter do
   defp strip_breaks(statements) do
     Enum.reject(statements, &match?({:break}, &1))
   end
+
+  defp emit_foreach_reduce(collection, key_var, value_var, body) do
+    pattern = foreach_pattern(key_var, value_var)
+    body_str = emit_body(body)
+    "our = Enum.reduce(#{emit_expr(collection)}, our, fn #{pattern} ->\n#{body_str}\nour\nend)"
+  end
+
+  defp emit_foreach_with_break(collection, key_var, value_var, body) do
+    pattern = foreach_pattern(key_var, value_var)
+    body_str = emit_body_with_halt(body)
+
+    "our = Enum.reduce_while(#{emit_expr(collection)}, our, fn #{pattern} ->\n#{body_str}\nend)"
+  end
+
+  defp foreach_pattern(nil, value_var), do: "#{emit_expr(value_var)}, our"
+
+  defp foreach_pattern(key_var, value_var),
+    do: "{#{emit_expr(key_var)}, #{emit_expr(value_var)}}, our"
+
+  defp has_break?(stmts) when is_list(stmts), do: Enum.any?(stmts, &has_break?/1)
+  defp has_break?({:break}), do: true
+
+  defp has_break?({:if, _, then_body, elseifs, else_body}) do
+    has_break?(then_body) or
+      Enum.any?(elseifs, fn {_, body} -> has_break?(body) end) or
+      (else_body != nil and has_break?(else_body))
+  end
+
+  defp has_break?(_), do: false
+
+  defp emit_body_with_halt(statements) do
+    statements
+    |> Enum.map(&emit_statement_with_halt/1)
+    |> Enum.reject(&is_nil/1)
+    |> Enum.join("\n")
+  end
+
+  defp emit_statement_with_halt({:break}), do: "{:halt, our}"
+
+  defp emit_statement_with_halt({:if, condition, then_body, [], nil}) do
+    then_str = emit_body_with_halt(then_body)
+    "if #{emit_expr(condition)} do\n#{then_str}\nelse\n{:cont, our}\nend"
+  end
+
+  defp emit_statement_with_halt({:if, condition, then_body, [], else_body}) do
+    then_str = emit_body_with_halt(then_body)
+    else_str = emit_body_with_halt(else_body)
+    "if #{emit_expr(condition)} do\n#{then_str}\nelse\n#{else_str}\nend"
+  end
+
+  defp emit_statement_with_halt(stmt), do: emit_statement(stmt)
 end

@@ -562,6 +562,48 @@ defmodule PhpToElixir.EmitterTest do
       assert code =~ "our = Enum.reduce"
       assert code =~ "item, our ->"
     end
+
+    test "emits Enum.reduce_while when body contains break" do
+      # foreach ($items as $k => $v) { if ($v == 'x') { $our['found'] = $k; break; } }
+      ast =
+        {:program,
+         [
+           {:foreach, {:variable, "items"}, {:variable, "k"}, {:variable, "v"},
+            [
+              {:if, {:binary_op, :==, {:variable, "v"}, {:string, "x"}},
+               [
+                 {:assign, {:array_access, {:variable, "our"}, {:string, "found"}},
+                  {:variable, "k"}},
+                 {:break}
+               ], [], nil}
+            ]}
+         ]}
+
+      {:ok, code} = Emitter.emit(ast)
+      assert code =~ "Enum.reduce_while"
+      assert code =~ "{:halt, our}"
+      assert code =~ "{:cont, our}"
+    end
+
+    test "emits Enum.reduce_while with value-only pattern" do
+      # foreach ($items as $item) { if ($item == 'x') { $our['r'] = 'y'; break; } }
+      ast =
+        {:program,
+         [
+           {:foreach, {:variable, "items"}, nil, {:variable, "item"},
+            [
+              {:if, {:binary_op, :==, {:variable, "item"}, {:string, "x"}},
+               [
+                 {:assign, {:array_access, {:variable, "our"}, {:string, "r"}}, {:string, "y"}},
+                 {:break}
+               ], [], nil}
+            ]}
+         ]}
+
+      {:ok, code} = Emitter.emit(ast)
+      assert code =~ "Enum.reduce_while"
+      assert code =~ "{:halt, our}"
+    end
   end
 
   describe "switch/case as cond" do
