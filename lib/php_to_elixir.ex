@@ -9,6 +9,23 @@ defmodule PhpToElixir do
   alias PhpToElixir.{Emitter, Lexer, Parser}
 
   @doc """
+  Parses PHP source code into an AST without emitting Elixir code.
+
+  Returns the raw AST for inspection or custom processing.
+
+  ## Examples
+
+      iex> PhpToElixir.parse("<?php $x = 42;")
+      {:ok, {:program, [{:assign, {:variable, "x"}, {:integer, 42}}]}}
+  """
+  @spec parse(String.t()) :: {:ok, PhpToElixir.Ast.program()} | {:error, String.t()}
+  def parse(php_source) do
+    with {:ok, tokens} <- Lexer.tokenize(php_source) do
+      Parser.parse(tokens)
+    end
+  end
+
+  @doc """
   Transpiles PHP source code to Elixir source code.
 
   Takes a PHP source string and returns formatted Elixir code.

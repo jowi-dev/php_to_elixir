@@ -2,6 +2,23 @@ defmodule PhpToElixirTest do
   use ExUnit.Case
   doctest PhpToElixir
 
+  describe "parse/1" do
+    test "returns AST for valid PHP" do
+      assert {:ok, {:program, stmts}} = PhpToElixir.parse("<?php $x = 42;")
+      assert [{:assign, {:variable, "x"}, {:integer, 42}}] = stmts
+    end
+
+    test "returns error for invalid PHP" do
+      assert {:error, _reason} = PhpToElixir.parse("<?php $x = ;")
+    end
+
+    test "returns multi-statement AST" do
+      php = "<?php $a = 1; $b = 2;"
+      assert {:ok, {:program, stmts}} = PhpToElixir.parse(php)
+      assert length(stmts) == 2
+    end
+  end
+
   describe "transpile/1" do
     test "simple assignment" do
       assert PhpToElixir.transpile("<?php $x = 42;") == {:ok, "x = 42\n"}
