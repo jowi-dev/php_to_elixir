@@ -1,0 +1,9 @@
+[env]
+  # Environment
+  MIX_ENV="dev"
+  PROJECT_NAME="php_to_elixir"
+  MACHINE_TYPE="work"
+
+[tools]
+  elixir="latest"
+  erlang="latest"
