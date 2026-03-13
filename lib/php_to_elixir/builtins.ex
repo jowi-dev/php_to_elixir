@@ -107,6 +107,35 @@ defmodule PhpToElixir.Builtins do
     {:ok, "Regex.match?(~r/#{regex}/#{flags}, #{Emitter.emit_expr(subject)})"}
   end
 
+  def translate("md5", [arg]) do
+    {:ok, ":crypto.hash(:md5, #{Emitter.emit_expr(arg)}) |> Base.encode16(case: :lower)"}
+  end
+
+  def translate("base64_encode", [arg]) do
+    {:ok, "Base.encode64(#{Emitter.emit_expr(arg)})"}
+  end
+
+  def translate("urlencode", [arg]) do
+    {:ok, "URI.encode_www_form(#{Emitter.emit_expr(arg)})"}
+  end
+
+  def translate("http_build_query", [arg]) do
+    {:ok, "URI.encode_query(#{Emitter.emit_expr(arg)})"}
+  end
+
+  def translate("substr", [string, start]) do
+    {:ok, "String.slice(#{Emitter.emit_expr(string)}, #{Emitter.emit_expr(start)}..-1//1)"}
+  end
+
+  def translate("substr", [string, start, length]) do
+    {:ok,
+     "String.slice(#{Emitter.emit_expr(string)}, #{Emitter.emit_expr(start)}, #{Emitter.emit_expr(length)})"}
+  end
+
+  def translate("strlen", [arg]) do
+    {:ok, "String.length(#{Emitter.emit_expr(arg)})"}
+  end
+
   def translate(_name, _args), do: :unknown
 
   # Parses PHP regex like /pattern/flags, `pattern`flags, ~pattern~flags

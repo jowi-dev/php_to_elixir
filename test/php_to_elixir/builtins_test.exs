@@ -144,6 +144,41 @@ defmodule PhpToElixir.BuiltinsTest do
       assert Builtins.translate("time", []) == {:ok, "System.os_time(:second)"}
     end
 
+    test "md5" do
+      assert Builtins.translate("md5", [{:variable, "s"}]) ==
+               {:ok, ":crypto.hash(:md5, s) |> Base.encode16(case: :lower)"}
+    end
+
+    test "base64_encode" do
+      assert Builtins.translate("base64_encode", [{:variable, "s"}]) ==
+               {:ok, "Base.encode64(s)"}
+    end
+
+    test "urlencode" do
+      assert Builtins.translate("urlencode", [{:variable, "s"}]) ==
+               {:ok, "URI.encode_www_form(s)"}
+    end
+
+    test "http_build_query" do
+      assert Builtins.translate("http_build_query", [{:variable, "params"}]) ==
+               {:ok, "URI.encode_query(params)"}
+    end
+
+    test "substr 2-arg" do
+      assert Builtins.translate("substr", [{:variable, "s"}, {:integer, 3}]) ==
+               {:ok, "String.slice(s, 3..-1//1)"}
+    end
+
+    test "substr 3-arg" do
+      assert Builtins.translate("substr", [{:variable, "s"}, {:integer, 0}, {:integer, 5}]) ==
+               {:ok, "String.slice(s, 0, 5)"}
+    end
+
+    test "strlen" do
+      assert Builtins.translate("strlen", [{:variable, "s"}]) ==
+               {:ok, "String.length(s)"}
+    end
+
     test "unknown returns :unknown" do
       assert Builtins.translate("custom_func", [{:variable, "x"}]) == :unknown
     end
