@@ -52,12 +52,8 @@ defmodule PhpToElixir.Emitter do
   def emit_expr({:boolean, true}), do: "true"
   def emit_expr({:boolean, false}), do: "false"
   def emit_expr({nil}), do: "nil"
-
   def emit_expr({:variable, name}), do: name
-
-  def emit_expr({:array_literal, []}) do
-    "%{}"
-  end
+  def emit_expr({:array_literal, []}), do: "%{}"
 
   def emit_expr({:array_literal, entries}) do
     case hd(entries) do
@@ -65,6 +61,32 @@ defmodule PhpToElixir.Emitter do
       _ -> emit_list(entries)
     end
   end
+
+  def emit_expr({:array_access, target, key}) do
+    "#{emit_expr(target)}[#{emit_expr(key)}]"
+  end
+
+  def emit_expr({:binary_op, :., left, right}) do
+    "#{emit_concat_operand(left)} <> #{emit_concat_operand(right)}"
+  end
+
+  def emit_expr({:binary_op, op, left, right}) do
+    "#{emit_expr(left)} #{op} #{emit_expr(right)}"
+  end
+
+  def emit_expr({:unary_op, :!, operand}), do: "!#{emit_expr(operand)}"
+
+  def emit_expr({:ternary, condition, then_expr, else_expr}) do
+    "if(#{emit_expr(condition)}, do: #{emit_expr(then_expr)}, else: #{emit_expr(else_expr)})"
+  end
+
+  def emit_expr({:null_coalesce, left, right}), do: "#{emit_expr(left)} || #{emit_expr(right)}"
+  def emit_expr({:elvis, left, right}), do: "#{emit_expr(left)} || #{emit_expr(right)}"
+  def emit_expr({:type_cast, :int, expr}), do: "to_integer(#{emit_expr(expr)})"
+  def emit_expr({:type_cast, :float, expr}), do: "to_float(#{emit_expr(expr)})"
+  def emit_expr({:type_cast, :string, expr}), do: "to_string(#{emit_expr(expr)})"
+
+  # --- Private helpers ---
 
   defp emit_map(entries) do
     inner =
@@ -79,4 +101,8 @@ defmodule PhpToElixir.Emitter do
     inner = Enum.map_join(entries, ", ", &emit_expr/1)
     "[#{inner}]"
   end
+
+  defp emit_concat_operand({:string, _} = expr), do: emit_expr(expr)
+  defp emit_concat_operand({:interpolated_string, _} = expr), do: emit_expr(expr)
+  defp emit_concat_operand(expr), do: "to_string(#{emit_expr(expr)})"
 end
