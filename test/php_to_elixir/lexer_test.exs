@@ -184,4 +184,23 @@ defmodule PhpToElixir.LexerTest do
                ]
     end
   end
+
+  describe "variables" do
+    test "tokenizes simple variable" do
+      assert token_types("<?php $foo") == [{:open_tag, "<?php"}, {:variable, "foo"}]
+    end
+
+    test "tokenizes variable starting with underscore" do
+      assert token_types("<?php $_underscore") ==
+               [{:open_tag, "<?php"}, {:variable, "_underscore"}]
+    end
+
+    test "tokenizes variable with digits" do
+      assert token_types("<?php $var2") == [{:open_tag, "<?php"}, {:variable, "var2"}]
+    end
+
+    test "tokenizes $our (regression — not a keyword)" do
+      assert token_types("<?php $our") == [{:open_tag, "<?php"}, {:variable, "our"}]
+    end
+  end
 end

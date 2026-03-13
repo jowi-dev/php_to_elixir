@@ -115,6 +115,14 @@ defmodule PhpToElixir.Lexer do
     end
   end
 
+  # Variable: $identifier
+  defp do_tokenize(<<?$, c, rest::binary>>, line, col, acc)
+       when c in ?a..?z or c in ?A..?Z or c == ?_ do
+    {name, rest2} = scan_identifier_chars(rest, <<c>>)
+    token = %Token{type: :variable, value: name, line: line, col: col}
+    do_tokenize(rest2, line, col + 1 + String.length(name), [token | acc])
+  end
+
   # Catch-all: unexpected character
   defp do_tokenize(<<c::utf8, _rest::binary>>, line, col, _acc) do
     {:error, "Unexpected character '#{<<c::utf8>>}' at line #{line}, col #{col}"}
