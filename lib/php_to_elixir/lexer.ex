@@ -123,12 +123,41 @@ defmodule PhpToElixir.Lexer do
     do_tokenize(rest2, line, col + 1 + String.length(name), [token | acc])
   end
 
+  # Identifiers and keywords
+  defp do_tokenize(<<c, _rest::binary>> = input, line, col, acc)
+       when c in ?a..?z or c in ?A..?Z or c == ?_ do
+    {name, rest} = scan_identifier_chars(input, "")
+    type = keyword_type(name)
+    token = %Token{type: type, value: name, line: line, col: col}
+    do_tokenize(rest, line, col + String.length(name), [token | acc])
+  end
+
   # Catch-all: unexpected character
   defp do_tokenize(<<c::utf8, _rest::binary>>, line, col, _acc) do
     {:error, "Unexpected character '#{<<c::utf8>>}' at line #{line}, col #{col}"}
   end
 
   # --- Helpers ---
+
+  @keywords %{
+    "if" => :if,
+    "elseif" => :elseif,
+    "else" => :else,
+    "foreach" => :foreach,
+    "as" => :as,
+    "switch" => :switch,
+    "case" => :case,
+    "default" => :default,
+    "break" => :break,
+    "true" => true,
+    "false" => false,
+    "null" => :null,
+    "isset" => :isset,
+    "empty" => :empty,
+    "array" => :array
+  }
+
+  defp keyword_type(name), do: Map.get(@keywords, name, :identifier)
 
   defp skip_until_newline(<<?\n, rest::binary>>), do: rest
   defp skip_until_newline(<<_, rest::binary>>), do: skip_until_newline(rest)

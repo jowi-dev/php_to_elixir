@@ -203,4 +203,40 @@ defmodule PhpToElixir.LexerTest do
       assert token_types("<?php $our") == [{:open_tag, "<?php"}, {:variable, "our"}]
     end
   end
+
+  describe "keywords" do
+    test "tokenizes control flow keywords" do
+      for {input, expected} <- [
+            {"if", :if},
+            {"elseif", :elseif},
+            {"else", :else},
+            {"foreach", :foreach},
+            {"as", :as},
+            {"switch", :switch},
+            {"case", :case},
+            {"default", :default},
+            {"break", :break}
+          ] do
+        assert token_types("<?php #{input}") == [{:open_tag, "<?php"}, {expected, input}],
+               "Expected #{input} to produce #{inspect(expected)}"
+      end
+    end
+
+    test "tokenizes boolean and null keywords" do
+      assert token_types("<?php true") == [{:open_tag, "<?php"}, {true, "true"}]
+      assert token_types("<?php false") == [{:open_tag, "<?php"}, {false, "false"}]
+      assert token_types("<?php null") == [{:open_tag, "<?php"}, {:null, "null"}]
+    end
+
+    test "tokenizes builtin function keywords" do
+      assert token_types("<?php isset") == [{:open_tag, "<?php"}, {:isset, "isset"}]
+      assert token_types("<?php empty") == [{:open_tag, "<?php"}, {:empty, "empty"}]
+      assert token_types("<?php array") == [{:open_tag, "<?php"}, {:array, "array"}]
+    end
+
+    test "keyword boundary before $ — else$our" do
+      assert token_types("<?php else$our") ==
+               [{:open_tag, "<?php"}, {:else, "else"}, {:variable, "our"}]
+    end
+  end
 end
