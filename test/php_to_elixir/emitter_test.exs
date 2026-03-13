@@ -365,4 +365,150 @@ defmodule PhpToElixir.EmitterTest do
       assert Emitter.emit(ast) == {:ok, ~s|Regex.match?(~r/pattern/, str)|}
     end
   end
+
+  # --- Layer 4: Statements ---
+
+  describe "simple assignment" do
+    test "emits variable assignment" do
+      ast = {:program, [{:assign, {:variable, "x"}, {:string, "val"}}]}
+      assert Emitter.emit(ast) == {:ok, ~s|x = "val"|}
+    end
+  end
+
+  describe "array key assignment" do
+    test "emits Map.put for single key" do
+      ast =
+        {:program,
+         [
+           {:assign, {:array_access, {:variable, "our"}, {:string, "key"}}, {:string, "val"}}
+         ]}
+
+      assert Emitter.emit(ast) == {:ok, ~s|our = Map.put(our, "key", "val")|}
+    end
+
+    test "emits put_in for nested key" do
+      ast =
+        {:program,
+         [
+           {:assign,
+            {:array_access, {:array_access, {:variable, "data"}, {:string, "a"}}, {:string, "b"}},
+            {:integer, 42}}
+         ]}
+
+      assert Emitter.emit(ast) == {:ok, ~s|data = put_in(data, ["a", "b"], 42)|}
+    end
+  end
+
+  describe "if statement" do
+    test "emits if with no else, touching our" do
+      ast =
+        {:program,
+         [
+           {:if, {:binary_op, :==, {:variable, "x"}, {:string, "y"}},
+            [{:assign, {:array_access, {:variable, "our"}, {:string, "k"}}, {:string, "v"}}], [],
+            nil}
+         ]}
+
+      {:ok, code} = Emitter.emit(ast)
+      assert code =~ "our = if"
+      assert code =~ ~s|x == "y"|
+      assert code =~ "Map.put"
+      assert code =~ "else"
+      assert code =~ "our\nend"
+    end
+
+    test "emits if/else" do
+      ast =
+        {:program,
+         [
+           {:if, {:variable, "x"},
+            [{:assign, {:array_access, {:variable, "our"}, {:string, "a"}}, {:string, "1"}}], [],
+            [{:assign, {:array_access, {:variable, "our"}, {:string, "a"}}, {:string, "2"}}]}
+         ]}
+
+      {:ok, code} = Emitter.emit(ast)
+      assert code =~ "our = if"
+      assert code =~ "else"
+    end
+  end
+
+  describe "if/elseif/else as cond" do
+    test "emits cond with multiple branches" do
+      ast =
+        {:program,
+         [
+           {:if, {:binary_op, :==, {:variable, "x"}, {:integer, 1}},
+            [{:assign, {:array_access, {:variable, "our"}, {:string, "r"}}, {:string, "a"}}],
+            [
+              {{:binary_op, :==, {:variable, "x"}, {:integer, 2}},
+               [
+                 {:assign, {:array_access, {:variable, "our"}, {:string, "r"}}, {:string, "b"}}
+               ]}
+            ], [{:assign, {:array_access, {:variable, "our"}, {:string, "r"}}, {:string, "c"}}]}
+         ]}
+
+      {:ok, code} = Emitter.emit(ast)
+      assert code =~ "our = cond do"
+      assert code =~ "x == 1 ->"
+      assert code =~ "x == 2 ->"
+      assert code =~ "true ->"
+    end
+  end
+
+  describe "foreach" do
+    test "emits Enum.reduce with key-value" do
+      ast =
+        {:program,
+         [
+           {:foreach, {:variable, "items"}, {:variable, "k"}, {:variable, "v"},
+            [{:assign, {:array_access, {:variable, "our"}, {:variable, "k"}}, {:variable, "v"}}]}
+         ]}
+
+      {:ok, code} = Emitter.emit(ast)
+      assert code =~ "our = Enum.reduce"
+      assert code =~ "items"
+      assert code =~ "{k, v}, our ->"
+      assert code =~ "Map.put"
+    end
+
+    test "emits Enum.reduce with value only" do
+      ast =
+        {:program,
+         [
+           {:foreach, {:variable, "items"}, nil, {:variable, "item"},
+            [
+              {:assign, {:array_access, {:variable, "our"}, {:string, "count"}},
+               {:binary_op, :., {:variable, "item"}, {:string, " done"}}}
+            ]}
+         ]}
+
+      {:ok, code} = Emitter.emit(ast)
+      assert code =~ "our = Enum.reduce"
+      assert code =~ "item, our ->"
+    end
+  end
+
+  describe "switch/case as cond" do
+    test "emits cond with cases and default" do
+      ast =
+        {:program,
+         [
+           {:switch, {:variable, "x"},
+            [
+              {:case_clause, {:string, "a"},
+               [
+                 {:assign, {:array_access, {:variable, "our"}, {:string, "r"}}, {:string, "1"}},
+                 {:break}
+               ]},
+              {:case_clause, :default,
+               [{:assign, {:array_access, {:variable, "our"}, {:string, "r"}}, {:string, "0"}}]}
+            ]}
+         ]}
+
+      {:ok, code} = Emitter.emit(ast)
+      assert code =~ "our = cond do"
+      assert code =~ ~s|x == "a" ->|
+      assert code =~ "true ->"
+    end
+  end
 end

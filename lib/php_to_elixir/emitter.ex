@@ -31,6 +31,80 @@ defmodule PhpToElixir.Emitter do
   # --- Statements ---
 
   defp emit_statement({:expr_statement, expr}), do: emit_expr(expr)
+  defp emit_statement({:break}), do: nil
+
+  defp emit_statement({:assign, {:variable, name}, value}) do
+    "#{name} = #{emit_expr(value)}"
+  end
+
+  defp emit_statement({:assign, {:array_access, target, key}, value}) do
+    {root, keys} = collect_access_chain(target, [key])
+    root_name = emit_expr(root)
+
+    case keys do
+      [single_key] ->
+        "#{root_name} = Map.put(#{root_name}, #{emit_expr(single_key)}, #{emit_expr(value)})"
+
+      keys ->
+        keys_str = Enum.map_join(keys, ", ", &emit_expr/1)
+        "#{root_name} = put_in(#{root_name}, [#{keys_str}], #{emit_expr(value)})"
+    end
+  end
+
+  defp emit_statement({:if, condition, then_body, [], nil}) do
+    body = emit_body(then_body)
+    "our = if #{emit_expr(condition)} do\n#{body}\nour\nelse\nour\nend"
+  end
+
+  defp emit_statement({:if, condition, then_body, [], else_body}) do
+    then_str = emit_body(then_body)
+    else_str = emit_body(else_body)
+    "our = if #{emit_expr(condition)} do\n#{then_str}\nour\nelse\n#{else_str}\nour\nend"
+  end
+
+  defp emit_statement({:if, condition, then_body, elseif_clauses, else_body}) do
+    first_branch = "#{emit_expr(condition)} ->\n#{emit_body(then_body)}\nour"
+
+    elseif_branches =
+      Enum.map(elseif_clauses, fn {cond_expr, body} ->
+        "#{emit_expr(cond_expr)} ->\n#{emit_body(body)}\nour"
+      end)
+
+    default_branch =
+      case else_body do
+        nil -> "true ->\nour"
+        body -> "true ->\n#{emit_body(body)}\nour"
+      end
+
+    all_branches = Enum.join([first_branch | elseif_branches] ++ [default_branch], "\n")
+    "our = cond do\n#{all_branches}\nend"
+  end
+
+  defp emit_statement({:foreach, collection, key_var, value_var, body}) do
+    pattern =
+      case key_var do
+        nil -> "#{emit_expr(value_var)}, our"
+        _ -> "{#{emit_expr(key_var)}, #{emit_expr(value_var)}}, our"
+      end
+
+    body_str = emit_body(body)
+    "our = Enum.reduce(#{emit_expr(collection)}, our, fn #{pattern} ->\n#{body_str}\nour\nend)"
+  end
+
+  defp emit_statement({:switch, expr, clauses}) do
+    branches =
+      Enum.map_join(clauses, "\n", fn
+        {:case_clause, :default, body} ->
+          body_stmts = emit_body(strip_breaks(body))
+          "true ->\n#{body_stmts}\nour"
+
+        {:case_clause, case_expr, body} ->
+          body_stmts = emit_body(strip_breaks(body))
+          "#{emit_expr(expr)} == #{emit_expr(case_expr)} ->\n#{body_stmts}\nour"
+      end)
+
+    "our = cond do\n#{branches}\nend"
+  end
 
   # --- Expressions ---
 
@@ -120,5 +194,22 @@ defmodule PhpToElixir.Emitter do
   defp emit_unknown_function_call(name, args) do
     args_str = Enum.map_join(args, ", ", &emit_expr/1)
     "# TODO: #{name}(#{args_str})"
+  end
+
+  defp collect_access_chain({:array_access, inner_target, inner_key}, keys) do
+    collect_access_chain(inner_target, [inner_key | keys])
+  end
+
+  defp collect_access_chain(root, keys), do: {root, keys}
+
+  defp emit_body(statements) do
+    statements
+    |> Enum.map(&emit_statement/1)
+    |> Enum.reject(&is_nil/1)
+    |> Enum.join("\n")
+  end
+
+  defp strip_breaks(statements) do
+    Enum.reject(statements, &match?({:break}, &1))
   end
 end
