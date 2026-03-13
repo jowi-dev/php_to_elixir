@@ -19,6 +19,22 @@ defmodule PhpToElixirTest do
     end
   end
 
+  describe "$our['$field'] syntax" do
+    test "single-quoted dollar sign is literal in AST" do
+      php = ~s|<?php $our['$field'] = 'val';|
+
+      {:ok, {:program, [{:assign, {:array_access, {:variable, "our"}, {:string, "$field"}}, _}]}} =
+        PhpToElixir.parse(php)
+    end
+
+    test "single-quoted dollar sign transpiles correctly" do
+      php = ~s|<?php $our['$field'] = 'val';|
+      {:ok, code} = PhpToElixir.transpile(php)
+      assert code =~ ~s|"$field"|
+      assert code =~ "Map.put"
+    end
+  end
+
   describe "transpile/1" do
     test "simple assignment" do
       assert PhpToElixir.transpile("<?php $x = 42;") == {:ok, "x = 42\n"}
