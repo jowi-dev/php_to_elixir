@@ -30,11 +30,11 @@ defmodule PhpToElixir.Emitter do
 
   # --- Statements ---
 
-  defp emit_statement({:expr_statement, {:property_access, _, prop}}) do
+  defp emit_statement({:expr_statement, {:property_access, {:variable, "this"}, prop}}) do
     "# TODO: $this->#{prop}"
   end
 
-  defp emit_statement({:expr_statement, {:method_call, _, method, _}}) do
+  defp emit_statement({:expr_statement, {:method_call, {:variable, "this"}, method, _}}) do
     "# TODO: $this->#{method}()"
   end
 
@@ -52,7 +52,7 @@ defmodule PhpToElixir.Emitter do
     "#{name} = #{emit_expr(value)}"
   end
 
-  defp emit_statement({:assign, {:property_access, _target, prop}, _value}) do
+  defp emit_statement({:assign, {:property_access, {:variable, "this"}, prop}, _value}) do
     "# TODO: $this->#{prop} = ..."
   end
 
@@ -184,7 +184,7 @@ defmodule PhpToElixir.Emitter do
   def emit_expr({:type_cast, :float, expr}), do: "to_float(#{emit_expr(expr)})"
   def emit_expr({:type_cast, :string, expr}), do: "to_string(#{emit_expr(expr)})"
 
-  def emit_expr({:property_access, _target, _prop}), do: "nil"
+  def emit_expr({:property_access, target, prop}), do: "#{emit_expr(target)}[:#{prop}]"
   def emit_expr({:method_call, _target, _method, _args}), do: "nil"
 
   def emit_expr({:function_call, name, args}) do

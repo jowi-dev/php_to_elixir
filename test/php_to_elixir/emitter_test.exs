@@ -223,6 +223,26 @@ defmodule PhpToElixir.EmitterTest do
       {:ok, code} = Emitter.emit(ast)
       assert code =~ "# TODO: $this->sendCurl()"
     end
+
+    test "emits property access as map access in expressions" do
+      ast =
+        {:program,
+         [
+           {:assign, {:variable, "val"}, {:property_access, {:variable, "obj"}, "name"}}
+         ]}
+
+      assert Emitter.emit(ast) == {:ok, "val = obj[:name]"}
+    end
+
+    test "emits chained property access" do
+      ast =
+        {:program,
+         [
+           {:expr_statement, {:property_access, {:property_access, {:variable, "a"}, "b"}, "c"}}
+         ]}
+
+      assert Emitter.emit(ast) == {:ok, "a[:b][:c]"}
+    end
   end
 
   describe "function calls" do
@@ -560,7 +580,7 @@ defmodule PhpToElixir.EmitterTest do
   end
 
   describe "this-access safety" do
-    test "property access as expression emits nil (safe for nesting)" do
+    test "property access as expression emits map access (safe for nesting)" do
       ast =
         {:program,
          [
@@ -570,7 +590,7 @@ defmodule PhpToElixir.EmitterTest do
 
       {:ok, code} = Emitter.emit(ast)
       assert code =~ "Map.put(our"
-      assert code =~ "nil"
+      assert code =~ "this[:response]"
       assert match?({:ok, _}, Code.string_to_quoted(code))
     end
 
@@ -584,6 +604,7 @@ defmodule PhpToElixir.EmitterTest do
 
       {:ok, code} = Emitter.emit(ast)
       assert code =~ "Map.put"
+      assert code =~ "nil"
       assert match?({:ok, _}, Code.string_to_quoted(code))
     end
 
