@@ -99,6 +99,22 @@ defmodule PhpToElixir.BuiltinsTest do
                {:ok, "Regex.match?(~r/email/i, s)"}
     end
 
+    test "preg_match 3-arg with captures" do
+      assert Builtins.translate("preg_match", [
+               {:string, "/^(\\d+)/"},
+               {:variable, "s"},
+               {:variable, "matches"}
+             ]) == {:ok, ~s|matches = Regex.run(~r/^(\\d+)/, s)|}
+    end
+
+    test "preg_match 3-arg with flags" do
+      assert Builtins.translate("preg_match", [
+               {:string, "/(test)/i"},
+               {:variable, "str"},
+               {:variable, "m"}
+             ]) == {:ok, "m = Regex.run(~r/(test)/i, str)"}
+    end
+
     test "strpos" do
       assert Builtins.translate("strpos", [{:variable, "h"}, {:string, "n"}]) ==
                {:ok, ~s|String.contains?(h, "n")|}

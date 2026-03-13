@@ -77,6 +77,11 @@ defmodule PhpToElixir.Builtins do
     {:ok, "String.contains?(#{Emitter.emit_expr(haystack)}, #{Emitter.emit_expr(needle)})"}
   end
 
+  def translate("preg_match", [{:string, pattern}, subject, {:variable, captures_var}]) do
+    {regex, flags} = parse_php_regex(pattern)
+    {:ok, "#{captures_var} = Regex.run(~r/#{regex}/#{flags}, #{Emitter.emit_expr(subject)})"}
+  end
+
   def translate("preg_match", [{:string, pattern}, subject]) do
     {regex, flags} = parse_php_regex(pattern)
     {:ok, "Regex.match?(~r/#{regex}/#{flags}, #{Emitter.emit_expr(subject)})"}
