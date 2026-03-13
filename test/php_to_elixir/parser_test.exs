@@ -60,4 +60,38 @@ defmodule PhpToElixir.ParserTest do
       assert {:program, [{:expr_statement, {:integer, 42}}]} = parse!("<?php 42;")
     end
   end
+
+  describe "Step 2: array literals" do
+    test "array() with key-value pairs" do
+      assert parse_expr!("<?php array('a' => 'b');") ==
+               {:array_literal, [{:array_entry, {:string, "a"}, {:string, "b"}}]}
+    end
+
+    test "short array syntax with bare values" do
+      assert parse_expr!("<?php ['a', 'b'];") ==
+               {:array_literal, [{:string, "a"}, {:string, "b"}]}
+    end
+
+    test "mixed key-value and bare entries" do
+      assert parse_expr!("<?php array('key' => 'val', 'bare');") ==
+               {:array_literal,
+                [{:array_entry, {:string, "key"}, {:string, "val"}}, {:string, "bare"}]}
+    end
+
+    test "empty array" do
+      assert parse_expr!("<?php array();") == {:array_literal, []}
+    end
+
+    test "empty short array" do
+      assert parse_expr!("<?php [];") == {:array_literal, []}
+    end
+
+    test "nested array" do
+      assert parse_expr!("<?php ['a' => ['b']];") ==
+               {:array_literal,
+                [
+                  {:array_entry, {:string, "a"}, {:array_literal, [{:string, "b"}]}}
+                ]}
+    end
+  end
 end
