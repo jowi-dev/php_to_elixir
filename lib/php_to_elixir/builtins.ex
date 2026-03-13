@@ -73,6 +73,26 @@ defmodule PhpToElixir.Builtins do
     {:ok, "Jason.decode!(#{Emitter.emit_expr(arg)})"}
   end
 
+  def translate("gmdate", [_format]) do
+    {:ok, "DateTime.utc_now() |> DateTime.to_iso8601()"}
+  end
+
+  def translate("date", [_format]) do
+    {:ok, "DateTime.utc_now() |> DateTime.to_iso8601()"}
+  end
+
+  def translate("date", [_format, timestamp]) do
+    {:ok, "DateTime.from_unix!(#{Emitter.emit_expr(timestamp)}) |> DateTime.to_iso8601()"}
+  end
+
+  def translate("strtotime", [arg]) do
+    {:ok, "# TODO: strtotime(#{Emitter.emit_expr(arg)})"}
+  end
+
+  def translate("time", []) do
+    {:ok, "System.os_time(:second)"}
+  end
+
   def translate("strpos", [haystack, needle]) do
     {:ok, "String.contains?(#{Emitter.emit_expr(haystack)}, #{Emitter.emit_expr(needle)})"}
   end

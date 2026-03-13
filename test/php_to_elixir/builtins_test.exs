@@ -120,6 +120,30 @@ defmodule PhpToElixir.BuiltinsTest do
                {:ok, ~s|String.contains?(h, "n")|}
     end
 
+    test "gmdate" do
+      assert Builtins.translate("gmdate", [{:string, "Y-m-d H:i:s"}]) ==
+               {:ok, "DateTime.utc_now() |> DateTime.to_iso8601()"}
+    end
+
+    test "date with 1 arg" do
+      assert Builtins.translate("date", [{:string, "Y-m-d"}]) ==
+               {:ok, "DateTime.utc_now() |> DateTime.to_iso8601()"}
+    end
+
+    test "date with 2 args" do
+      assert Builtins.translate("date", [{:string, "Y-m-d"}, {:variable, "ts"}]) ==
+               {:ok, "DateTime.from_unix!(ts) |> DateTime.to_iso8601()"}
+    end
+
+    test "strtotime" do
+      assert Builtins.translate("strtotime", [{:string, "+1 day"}]) ==
+               {:ok, ~s|# TODO: strtotime("+1 day")|}
+    end
+
+    test "time" do
+      assert Builtins.translate("time", []) == {:ok, "System.os_time(:second)"}
+    end
+
     test "unknown returns :unknown" do
       assert Builtins.translate("custom_func", [{:variable, "x"}]) == :unknown
     end
