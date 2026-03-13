@@ -5,7 +5,8 @@
 Pipeline: **Lexer → Parser → Emitter**
 
 - `PhpToElixir.Lexer` — PHP source string → `[Token.t()]`
-- `PhpToElixir.Parser` — tokens → AST (future)
+- `PhpToElixir.Ast` — AST node type definitions (typespecs, no functions)
+- `PhpToElixir.Parser` — tokens → AST via recursive descent
 - `PhpToElixir.Emitter` — AST → Elixir source string (future)
 
 ## Code Conventions
@@ -22,6 +23,24 @@ Pipeline: **Lexer → Parser → Emitter**
 |---|---|
 | `PhpToElixir.Token` | Token struct: `%Token{type, value, line, col}` |
 | `PhpToElixir.Lexer` | Tokenizer: `tokenize/1` returns `{:ok, [Token.t()]}` or `{:error, reason}` |
+| `PhpToElixir.Ast` | AST node types as tagged tuple typespecs |
+| `PhpToElixir.Parser` | Parser: `parse/1` returns `{:ok, ast}` or `{:error, reason}` |
+
+## AST Node Types
+
+```
+# Statements:    {:program, [stmt]}, {:if, cond, body, elseifs, else}, {:foreach, coll, key, val, body}
+#                {:switch, expr, [case_clause]}, {:case_clause, expr | :default, body}
+#                {:break}, {:assign, target, value}, {:expr_statement, expr}
+# Expressions:   {:binary_op, op, left, right}, {:unary_op, :!, operand}
+#                {:ternary, cond, then, else}, {:null_coalesce, left, right}
+#                {:elvis, left, right}, {:type_cast, type, expr}
+# Access:        {:variable, name}, {:array_access, target, key}, {:property_access, target, prop}
+#                {:method_call, target, method, args}, {:function_call, name, args}
+#                {:array_append, target}
+# Literals:      {:string, val}, {:interpolated_string, parts}, {:integer, val}, {:float, val}
+#                {:boolean, bool}, {:nil}, {:array_literal, entries}, {:array_entry, key, val}
+```
 
 ## Token Types
 
