@@ -436,27 +436,36 @@ defmodule PhpToElixir.Lexer do
 
     case scan_identifier_chars(rest, "") do
       {type_name, rest2} when type_name != "" ->
-        case Map.get(@cast_types, type_name) do
-          nil ->
-            :not_a_cast
-
-          cast_type ->
-            {spaces_after, rest3} = scan_optional_spaces(rest2)
-
-            case rest3 do
-              <<?), rest4::binary>> ->
-                raw = "(" <> spaces_before <> type_name <> spaces_after <> ")"
-                {:ok, cast_type, raw, rest4}
-
-              _ ->
-                :not_a_cast
-            end
-        end
+        try_complete_cast(type_name, rest2, spaces_before)
 
       _ ->
         :not_a_cast
     end
   end
+
+  defp try_complete_cast(type_name, rest, spaces_before) do
+    case Map.get(@cast_types, type_name) do
+      nil ->
+        :not_a_cast
+
+      cast_type ->
+        {spaces_after, rest2} = scan_optional_spaces(rest)
+        try_close_cast_paren(rest2, cast_type, spaces_before, type_name, spaces_after)
+    end
+  end
+
+  defp try_close_cast_paren(
+         <<?), rest::binary>>,
+         cast_type,
+         spaces_before,
+         type_name,
+         spaces_after
+       ) do
+    raw = "(" <> spaces_before <> type_name <> spaces_after <> ")"
+    {:ok, cast_type, raw, rest}
+  end
+
+  defp try_close_cast_paren(_, _, _, _, _), do: :not_a_cast
 
   defp scan_optional_spaces(input), do: scan_optional_spaces(input, "")
 
