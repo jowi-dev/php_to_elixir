@@ -312,4 +312,29 @@ defmodule PhpToElixir.LexerTest do
                [{:open_tag, "<?php"}, {:cast_int, "( int )"}]
     end
   end
+
+  describe "delimiters" do
+    test "tokenizes parentheses" do
+      assert token_types("<?php ()") ==
+               [{:open_tag, "<?php"}, {:lparen, "("}, {:rparen, ")"}]
+    end
+
+    test "tokenizes curly braces" do
+      assert token_types("<?php {}") ==
+               [{:open_tag, "<?php"}, {:lbrace, "{"}, {:rbrace, "}"}]
+    end
+
+    test "tokenizes square brackets" do
+      assert token_types("<?php []") ==
+               [{:open_tag, "<?php"}, {:lbracket, "["}, {:rbracket, "]"}]
+    end
+
+    test "tokenizes semicolon" do
+      assert token_types("<?php ;") == [{:open_tag, "<?php"}, {:semicolon, ";"}]
+    end
+
+    test "tokenizes comma" do
+      assert token_types("<?php ,") == [{:open_tag, "<?php"}, {:comma, ","}]
+    end
+  end
 end

@@ -220,6 +220,44 @@ defmodule PhpToElixir.Lexer do
     do_tokenize(rest, line, col + 1, [token | acc])
   end
 
+  # --- Delimiters ---
+  # Note: ( is handled by cast detection which falls through to do_tokenize_lparen
+
+  defp do_tokenize(<<?), rest::binary>>, line, col, acc) do
+    token = %Token{type: :rparen, value: ")", line: line, col: col}
+    do_tokenize(rest, line, col + 1, [token | acc])
+  end
+
+  defp do_tokenize(<<?{, rest::binary>>, line, col, acc) do
+    token = %Token{type: :lbrace, value: "{", line: line, col: col}
+    do_tokenize(rest, line, col + 1, [token | acc])
+  end
+
+  defp do_tokenize(<<?}, rest::binary>>, line, col, acc) do
+    token = %Token{type: :rbrace, value: "}", line: line, col: col}
+    do_tokenize(rest, line, col + 1, [token | acc])
+  end
+
+  defp do_tokenize(<<?[, rest::binary>>, line, col, acc) do
+    token = %Token{type: :lbracket, value: "[", line: line, col: col}
+    do_tokenize(rest, line, col + 1, [token | acc])
+  end
+
+  defp do_tokenize(<<?], rest::binary>>, line, col, acc) do
+    token = %Token{type: :rbracket, value: "]", line: line, col: col}
+    do_tokenize(rest, line, col + 1, [token | acc])
+  end
+
+  defp do_tokenize(<<?;, rest::binary>>, line, col, acc) do
+    token = %Token{type: :semicolon, value: ";", line: line, col: col}
+    do_tokenize(rest, line, col + 1, [token | acc])
+  end
+
+  defp do_tokenize(<<?,, rest::binary>>, line, col, acc) do
+    token = %Token{type: :comma, value: ",", line: line, col: col}
+    do_tokenize(rest, line, col + 1, [token | acc])
+  end
+
   # Catch-all: unexpected character
   defp do_tokenize(<<c::utf8, _rest::binary>>, line, col, _acc) do
     {:error, "Unexpected character '#{<<c::utf8>>}' at line #{line}, col #{col}"}
