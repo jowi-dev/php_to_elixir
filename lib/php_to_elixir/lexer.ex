@@ -332,6 +332,11 @@ defmodule PhpToElixir.Lexer do
     scan_single_quoted_string(rest, line, col + 1, acc <> <<c::utf8>>)
   end
 
+  # Non-UTF-8 byte fallback (e.g. ISO-8859-1 encoded files)
+  defp scan_single_quoted_string(<<_byte, rest::binary>>, line, col, acc) do
+    scan_single_quoted_string(rest, line, col + 1, acc <> "?")
+  end
+
   defp scan_single_quoted_string(<<>>, line, col, _acc) do
     {:error, "Unterminated single-quoted string at line #{line}, col #{col}"}
   end
@@ -386,6 +391,11 @@ defmodule PhpToElixir.Lexer do
   # Regular character
   defp scan_double_quoted_string(<<c::utf8, rest::binary>>, line, col, parts) do
     scan_double_quoted_string(rest, line, col + 1, add_char_to_parts(parts, <<c::utf8>>))
+  end
+
+  # Non-UTF-8 byte fallback (e.g. ISO-8859-1 encoded files)
+  defp scan_double_quoted_string(<<_byte, rest::binary>>, line, col, parts) do
+    scan_double_quoted_string(rest, line, col + 1, add_char_to_parts(parts, "?"))
   end
 
   defp scan_double_quoted_string(<<>>, line, col, _parts) do

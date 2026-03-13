@@ -79,9 +79,24 @@ defmodule PhpToElixir.BuiltinsTest do
                {:ok, "Jason.decode!(s)"}
     end
 
-    test "preg_match" do
+    test "preg_match with simple pattern" do
       assert Builtins.translate("preg_match", [{:string, "/pat/"}, {:variable, "s"}]) ==
                {:ok, "Regex.match?(~r/pat/, s)"}
+    end
+
+    test "preg_match with flags" do
+      assert Builtins.translate("preg_match", [{:string, "/GUTTERS/i"}, {:variable, "s"}]) ==
+               {:ok, "Regex.match?(~r/GUTTERS/i, s)"}
+    end
+
+    test "preg_match with backtick delimiter" do
+      assert Builtins.translate("preg_match", [{:string, "`windows`i"}, {:variable, "s"}]) ==
+               {:ok, "Regex.match?(~r/windows/i, s)"}
+    end
+
+    test "preg_match with tilde delimiter" do
+      assert Builtins.translate("preg_match", [{:string, "~email~i"}, {:variable, "s"}]) ==
+               {:ok, "Regex.match?(~r/email/i, s)"}
     end
 
     test "unknown returns :unknown" do

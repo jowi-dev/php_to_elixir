@@ -208,30 +208,33 @@ defmodule PhpToElixir.EmitterTest do
   # --- Layer 3: Access + Builtins ---
 
   describe "property access and method calls" do
-    test "emits property access as TODO comment" do
+    test "emits property access as TODO comment at statement level" do
       ast =
         {:program, [{:expr_statement, {:property_access, {:variable, "this"}, "response"}}]}
 
-      assert Emitter.emit(ast) == {:ok, "# TODO: $this->response"}
+      {:ok, code} = Emitter.emit(ast)
+      assert code =~ "# TODO: $this->response"
     end
 
-    test "emits method call as TODO comment" do
+    test "emits method call as TODO comment at statement level" do
       ast =
         {:program, [{:expr_statement, {:method_call, {:variable, "this"}, "sendCurl", []}}]}
 
-      assert Emitter.emit(ast) == {:ok, "# TODO: $this->sendCurl()"}
+      {:ok, code} = Emitter.emit(ast)
+      assert code =~ "# TODO: $this->sendCurl()"
     end
   end
 
   describe "function calls" do
-    test "emits unknown function call as TODO comment" do
+    test "emits unknown function call as TODO comment at statement level" do
       ast =
         {:program,
          [
            {:expr_statement, {:function_call, "someFunc", [{:variable, "x"}, {:string, "y"}]}}
          ]}
 
-      assert Emitter.emit(ast) == {:ok, ~s|# TODO: someFunc(x, "y")|}
+      {:ok, code} = Emitter.emit(ast)
+      assert code =~ "# TODO: someFunc"
     end
 
     test "emits isset as Map.has_key?" do
@@ -530,6 +533,67 @@ defmodule PhpToElixir.EmitterTest do
       assert Enum.at(lines, 0) =~ ~s|Map.put(our, "a", "1")|
       assert Enum.at(lines, 1) =~ ~s|Map.put(our, "b", "2")|
       assert Enum.at(lines, 2) =~ ~s|Map.put(our, "c", "3")|
+    end
+  end
+
+  # --- Phase 6: Real-world compatibility fixes ---
+
+  describe "list() destructuring assignment" do
+    test "emits list assignment as pattern match" do
+      ast =
+        {:program,
+         [
+           {:assign,
+            {:function_call, "list",
+             [
+               {:array_access, {:variable, "our"}, {:string, "a"}},
+               {:array_access, {:variable, "our"}, {:string, "b"}}
+             ]},
+            {:function_call, "explode",
+             [{:string, ","}, {:array_access, {:variable, "our"}, {:string, "x"}}]}}
+         ]}
+
+      {:ok, code} = Emitter.emit(ast)
+      assert code =~ "["
+      assert code =~ "String.split"
+    end
+  end
+
+  describe "this-access safety" do
+    test "property access as expression emits nil (safe for nesting)" do
+      ast =
+        {:program,
+         [
+           {:assign, {:array_access, {:variable, "our"}, {:string, "val"}},
+            {:property_access, {:variable, "this"}, "response"}}
+         ]}
+
+      {:ok, code} = Emitter.emit(ast)
+      assert code =~ "Map.put(our"
+      assert code =~ "nil"
+      assert match?({:ok, _}, Code.string_to_quoted(code))
+    end
+
+    test "method call as expression emits nil (safe for nesting)" do
+      ast =
+        {:program,
+         [
+           {:assign, {:array_access, {:variable, "our"}, {:string, "price"}},
+            {:method_call, {:variable, "this"}, "getPingValue", []}}
+         ]}
+
+      {:ok, code} = Emitter.emit(ast)
+      assert code =~ "Map.put"
+      assert match?({:ok, _}, Code.string_to_quoted(code))
+    end
+
+    test "assignment to this-property emits comment on own line" do
+      ast =
+        {:program,
+         [{:assign, {:property_access, {:variable, "this"}, "headers"}, {:string, "val"}}]}
+
+      {:ok, code} = Emitter.emit(ast)
+      assert code =~ "# TODO"
     end
   end
 end

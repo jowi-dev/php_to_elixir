@@ -74,9 +74,20 @@ defmodule PhpToElixir.Builtins do
   end
 
   def translate("preg_match", [{:string, pattern}, subject]) do
-    regex = pattern |> String.trim_leading("/") |> String.trim_trailing("/")
-    {:ok, "Regex.match?(~r/#{regex}/, #{Emitter.emit_expr(subject)})"}
+    {regex, flags} = parse_php_regex(pattern)
+    {:ok, "Regex.match?(~r/#{regex}/#{flags}, #{Emitter.emit_expr(subject)})"}
   end
 
   def translate(_name, _args), do: :unknown
+
+  # Parses PHP regex like /pattern/flags, `pattern`flags, ~pattern~flags
+  defp parse_php_regex(raw) do
+    delimiter = String.first(raw)
+    rest = String.slice(raw, 1..-1//1)
+
+    case String.split(rest, delimiter, parts: 2) do
+      [pattern, flags] -> {pattern, flags}
+      [pattern] -> {pattern, ""}
+    end
+  end
 end

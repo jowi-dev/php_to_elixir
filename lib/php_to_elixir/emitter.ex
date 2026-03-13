@@ -30,11 +30,35 @@ defmodule PhpToElixir.Emitter do
 
   # --- Statements ---
 
+  defp emit_statement({:expr_statement, {:property_access, _, prop}}) do
+    "# TODO: $this->#{prop}"
+  end
+
+  defp emit_statement({:expr_statement, {:method_call, _, method, _}}) do
+    "# TODO: $this->#{method}()"
+  end
+
+  defp emit_statement({:expr_statement, {:function_call, name, args}}) do
+    case PhpToElixir.Builtins.translate(name, args) do
+      {:ok, code} -> code
+      :unknown -> "# TODO: #{name}(#{Enum.map_join(args, ", ", &emit_expr/1)})"
+    end
+  end
+
   defp emit_statement({:expr_statement, expr}), do: emit_expr(expr)
   defp emit_statement({:break}), do: nil
 
   defp emit_statement({:assign, {:variable, name}, value}) do
     "#{name} = #{emit_expr(value)}"
+  end
+
+  defp emit_statement({:assign, {:property_access, _target, prop}, _value}) do
+    "# TODO: $this->#{prop} = ..."
+  end
+
+  defp emit_statement({:assign, {:function_call, "list", targets}, value}) do
+    vars = Enum.map_join(targets, ", ", &emit_lvalue/1)
+    "[#{vars}] = #{emit_expr(value)}"
   end
 
   defp emit_statement({:assign, {:array_access, target, key}, value}) do
@@ -160,9 +184,8 @@ defmodule PhpToElixir.Emitter do
   def emit_expr({:type_cast, :float, expr}), do: "to_float(#{emit_expr(expr)})"
   def emit_expr({:type_cast, :string, expr}), do: "to_string(#{emit_expr(expr)})"
 
-  def emit_expr({:property_access, _target, prop}), do: "# TODO: $this->#{prop}"
-
-  def emit_expr({:method_call, _target, method, _args}), do: "# TODO: $this->#{method}()"
+  def emit_expr({:property_access, _target, _prop}), do: "nil"
+  def emit_expr({:method_call, _target, _method, _args}), do: "nil"
 
   def emit_expr({:function_call, name, args}) do
     case PhpToElixir.Builtins.translate(name, args) do
@@ -191,10 +214,11 @@ defmodule PhpToElixir.Emitter do
   defp emit_concat_operand({:interpolated_string, _} = expr), do: emit_expr(expr)
   defp emit_concat_operand(expr), do: "to_string(#{emit_expr(expr)})"
 
-  defp emit_unknown_function_call(name, args) do
-    args_str = Enum.map_join(args, ", ", &emit_expr/1)
-    "# TODO: #{name}(#{args_str})"
-  end
+  defp emit_unknown_function_call(_name, _args), do: "nil"
+
+  defp emit_lvalue({:variable, name}), do: name
+  defp emit_lvalue({:array_access, target, key}), do: "#{emit_expr(target)}[#{emit_expr(key)}]"
+  defp emit_lvalue(expr), do: emit_expr(expr)
 
   defp collect_access_chain({:array_access, inner_target, inner_key}, keys) do
     collect_access_chain(inner_target, [inner_key | keys])
