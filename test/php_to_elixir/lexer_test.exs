@@ -254,4 +254,37 @@ defmodule PhpToElixir.LexerTest do
       assert token_types("<?php MyClass") == [{:open_tag, "<?php"}, {:identifier, "MyClass"}]
     end
   end
+
+  describe "operators" do
+    test "tokenizes triple-char operators (longest match)" do
+      assert token_types("<?php ===") == [{:open_tag, "<?php"}, {:strict_eq, "==="}]
+      assert token_types("<?php !==") == [{:open_tag, "<?php"}, {:strict_neq, "!=="}]
+    end
+
+    test "tokenizes double-char operators" do
+      assert token_types("<?php ==") == [{:open_tag, "<?php"}, {:eq, "=="}]
+      assert token_types("<?php !=") == [{:open_tag, "<?php"}, {:neq, "!="}]
+      assert token_types("<?php ||") == [{:open_tag, "<?php"}, {:or, "||"}]
+      assert token_types("<?php &&") == [{:open_tag, "<?php"}, {:and, "&&"}]
+      assert token_types("<?php ??") == [{:open_tag, "<?php"}, {:null_coalesce, "??"}]
+      assert token_types("<?php =>") == [{:open_tag, "<?php"}, {:double_arrow, "=>"}]
+      assert token_types("<?php ->") == [{:open_tag, "<?php"}, {:arrow, "->"}]
+    end
+
+    test "tokenizes single-char operators" do
+      assert token_types("<?php =") == [{:open_tag, "<?php"}, {:assign, "="}]
+      assert token_types("<?php !") == [{:open_tag, "<?php"}, {:not, "!"}]
+      assert token_types("<?php .") == [{:open_tag, "<?php"}, {:dot, "."}]
+      assert token_types("<?php ?") == [{:open_tag, "<?php"}, {:question, "?"}]
+      assert token_types("<?php :") == [{:open_tag, "<?php"}, {:colon, ":"}]
+    end
+
+    test "longest match: === beats ==" do
+      types =
+        token_types("<?php ===")
+        |> Enum.map(&elem(&1, 0))
+
+      assert types == [:open_tag, :strict_eq]
+    end
+  end
 end

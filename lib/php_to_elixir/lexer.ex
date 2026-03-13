@@ -132,6 +132,81 @@ defmodule PhpToElixir.Lexer do
     do_tokenize(rest, line, col + String.length(name), [token | acc])
   end
 
+  # --- Operators (longest match first) ---
+
+  # Triple-char operators
+  defp do_tokenize(<<?=, ?=, ?=, rest::binary>>, line, col, acc) do
+    token = %Token{type: :strict_eq, value: "===", line: line, col: col}
+    do_tokenize(rest, line, col + 3, [token | acc])
+  end
+
+  defp do_tokenize(<<?!, ?=, ?=, rest::binary>>, line, col, acc) do
+    token = %Token{type: :strict_neq, value: "!==", line: line, col: col}
+    do_tokenize(rest, line, col + 3, [token | acc])
+  end
+
+  # Double-char operators
+  defp do_tokenize(<<?=, ?=, rest::binary>>, line, col, acc) do
+    token = %Token{type: :eq, value: "==", line: line, col: col}
+    do_tokenize(rest, line, col + 2, [token | acc])
+  end
+
+  defp do_tokenize(<<?!, ?=, rest::binary>>, line, col, acc) do
+    token = %Token{type: :neq, value: "!=", line: line, col: col}
+    do_tokenize(rest, line, col + 2, [token | acc])
+  end
+
+  defp do_tokenize(<<?|, ?|, rest::binary>>, line, col, acc) do
+    token = %Token{type: :or, value: "||", line: line, col: col}
+    do_tokenize(rest, line, col + 2, [token | acc])
+  end
+
+  defp do_tokenize(<<?&, ?&, rest::binary>>, line, col, acc) do
+    token = %Token{type: :and, value: "&&", line: line, col: col}
+    do_tokenize(rest, line, col + 2, [token | acc])
+  end
+
+  defp do_tokenize(<<??, ??, rest::binary>>, line, col, acc) do
+    token = %Token{type: :null_coalesce, value: "??", line: line, col: col}
+    do_tokenize(rest, line, col + 2, [token | acc])
+  end
+
+  defp do_tokenize(<<?=, ?>, rest::binary>>, line, col, acc) do
+    token = %Token{type: :double_arrow, value: "=>", line: line, col: col}
+    do_tokenize(rest, line, col + 2, [token | acc])
+  end
+
+  defp do_tokenize(<<?-, ?>, rest::binary>>, line, col, acc) do
+    token = %Token{type: :arrow, value: "->", line: line, col: col}
+    do_tokenize(rest, line, col + 2, [token | acc])
+  end
+
+  # Single-char operators
+  defp do_tokenize(<<?=, rest::binary>>, line, col, acc) do
+    token = %Token{type: :assign, value: "=", line: line, col: col}
+    do_tokenize(rest, line, col + 1, [token | acc])
+  end
+
+  defp do_tokenize(<<?!, rest::binary>>, line, col, acc) do
+    token = %Token{type: :not, value: "!", line: line, col: col}
+    do_tokenize(rest, line, col + 1, [token | acc])
+  end
+
+  defp do_tokenize(<<?., rest::binary>>, line, col, acc) do
+    token = %Token{type: :dot, value: ".", line: line, col: col}
+    do_tokenize(rest, line, col + 1, [token | acc])
+  end
+
+  defp do_tokenize(<<??, rest::binary>>, line, col, acc) do
+    token = %Token{type: :question, value: "?", line: line, col: col}
+    do_tokenize(rest, line, col + 1, [token | acc])
+  end
+
+  defp do_tokenize(<<?:, rest::binary>>, line, col, acc) do
+    token = %Token{type: :colon, value: ":", line: line, col: col}
+    do_tokenize(rest, line, col + 1, [token | acc])
+  end
+
   # Catch-all: unexpected character
   defp do_tokenize(<<c::utf8, _rest::binary>>, line, col, _acc) do
     {:error, "Unexpected character '#{<<c::utf8>>}' at line #{line}, col #{col}"}
