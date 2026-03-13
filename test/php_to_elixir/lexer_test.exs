@@ -337,4 +337,103 @@ defmodule PhpToElixir.LexerTest do
       assert token_types("<?php ,") == [{:open_tag, "<?php"}, {:comma, ","}]
     end
   end
+
+  describe "edge cases and integration" do
+    test "multi-token: array access assignment" do
+      input = "<?php $our['key'] = 'value';"
+
+      assert token_types(input) == [
+               {:open_tag, "<?php"},
+               {:variable, "our"},
+               {:lbracket, "["},
+               {:string, "key"},
+               {:rbracket, "]"},
+               {:assign, "="},
+               {:string, "value"},
+               {:semicolon, ";"}
+             ]
+    end
+
+    test "multi-token: if statement" do
+      input = "<?php if ($x == 'y') { $our['key'] = 'value'; }"
+
+      assert token_types(input) == [
+               {:open_tag, "<?php"},
+               {:if, "if"},
+               {:lparen, "("},
+               {:variable, "x"},
+               {:eq, "=="},
+               {:string, "y"},
+               {:rparen, ")"},
+               {:lbrace, "{"},
+               {:variable, "our"},
+               {:lbracket, "["},
+               {:string, "key"},
+               {:rbracket, "]"},
+               {:assign, "="},
+               {:string, "value"},
+               {:semicolon, ";"},
+               {:rbrace, "}"}
+             ]
+    end
+
+    test "error on unexpected character" do
+      assert {:error, "Unexpected character '@' at line 1, col 7"} =
+               Lexer.tokenize("<?php @")
+    end
+
+    test "$ inside single-quoted string in array access is literal" do
+      input = "<?php $our['$filterSetID']"
+
+      assert token_types(input) == [
+               {:open_tag, "<?php"},
+               {:variable, "our"},
+               {:lbracket, "["},
+               {:string, "$filterSetID"},
+               {:rbracket, "]"}
+             ]
+    end
+
+    test "foreach statement with double arrow" do
+      input = "<?php foreach ($items as $key => $value) {}"
+
+      assert token_types(input) == [
+               {:open_tag, "<?php"},
+               {:foreach, "foreach"},
+               {:lparen, "("},
+               {:variable, "items"},
+               {:as, "as"},
+               {:variable, "key"},
+               {:double_arrow, "=>"},
+               {:variable, "value"},
+               {:rparen, ")"},
+               {:lbrace, "{"},
+               {:rbrace, "}"}
+             ]
+    end
+
+    test "null coalescing with method call" do
+      input = "<?php $obj->method() ?? 'default'"
+
+      assert token_types(input) == [
+               {:open_tag, "<?php"},
+               {:variable, "obj"},
+               {:arrow, "->"},
+               {:identifier, "method"},
+               {:lparen, "("},
+               {:rparen, ")"},
+               {:null_coalesce, "??"},
+               {:string, "default"}
+             ]
+    end
+
+    test "tracks line and column through complex input" do
+      input = "<?php\n$x = 42;\n$y = 'hello';"
+      {:ok, tokens} = Lexer.tokenize(input)
+
+      y_var = Enum.find(tokens, &(&1.type == :variable && &1.value == "y"))
+      assert y_var.line == 3
+      assert y_var.col == 1
+    end
+  end
 end
