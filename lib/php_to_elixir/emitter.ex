@@ -86,6 +86,17 @@ defmodule PhpToElixir.Emitter do
   def emit_expr({:type_cast, :float, expr}), do: "to_float(#{emit_expr(expr)})"
   def emit_expr({:type_cast, :string, expr}), do: "to_string(#{emit_expr(expr)})"
 
+  def emit_expr({:property_access, _target, prop}), do: "# TODO: $this->#{prop}"
+
+  def emit_expr({:method_call, _target, method, _args}), do: "# TODO: $this->#{method}()"
+
+  def emit_expr({:function_call, name, args}) do
+    case PhpToElixir.Builtins.translate(name, args) do
+      {:ok, code} -> code
+      :unknown -> emit_unknown_function_call(name, args)
+    end
+  end
+
   # --- Private helpers ---
 
   defp emit_map(entries) do
@@ -105,4 +116,9 @@ defmodule PhpToElixir.Emitter do
   defp emit_concat_operand({:string, _} = expr), do: emit_expr(expr)
   defp emit_concat_operand({:interpolated_string, _} = expr), do: emit_expr(expr)
   defp emit_concat_operand(expr), do: "to_string(#{emit_expr(expr)})"
+
+  defp emit_unknown_function_call(name, args) do
+    args_str = Enum.map_join(args, ", ", &emit_expr/1)
+    "# TODO: #{name}(#{args_str})"
+  end
 end
