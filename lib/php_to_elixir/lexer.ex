@@ -74,6 +74,23 @@ defmodule PhpToElixir.Lexer do
     do_tokenize(rest, line, col + 2, [token | acc])
   end
 
+  # Numbers: integers and floats
+  defp do_tokenize(<<c, _rest::binary>> = input, line, col, acc) when c in ?0..?9 do
+    {digits, rest} = scan_digits(input, "")
+
+    case rest do
+      <<?., next, rest2::binary>> when next in ?0..?9 ->
+        {decimals, rest3} = scan_digits(<<next, rest2::binary>>, "")
+        raw = digits <> "." <> decimals
+        token = %Token{type: :float, value: String.to_float(raw), line: line, col: col}
+        do_tokenize(rest3, line, col + String.length(raw), [token | acc])
+
+      _ ->
+        token = %Token{type: :integer, value: String.to_integer(digits), line: line, col: col}
+        do_tokenize(rest, line, col + String.length(digits), [token | acc])
+    end
+  end
+
   # Catch-all: unexpected character
   defp do_tokenize(<<c::utf8, _rest::binary>>, line, col, _acc) do
     {:error, "Unexpected character '#{<<c::utf8>>}' at line #{line}, col #{col}"}
@@ -100,4 +117,10 @@ defmodule PhpToElixir.Lexer do
   defp skip_block_comment(<<>>, line, col) do
     {:error, "Unterminated block comment at line #{line}, col #{col}"}
   end
+
+  defp scan_digits(<<c, rest::binary>>, acc) when c in ?0..?9 do
+    scan_digits(rest, acc <> <<c>>)
+  end
+
+  defp scan_digits(rest, acc), do: {acc, rest}
 end

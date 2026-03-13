@@ -85,4 +85,28 @@ defmodule PhpToElixir.LexerTest do
       assert token_types(input) == [{:open_tag, "<?php"}, {:close_tag, "?>"}]
     end
   end
+
+  describe "integer literals" do
+    test "tokenizes simple integer" do
+      assert token_types("<?php 42") == [{:open_tag, "<?php"}, {:integer, 42}]
+    end
+
+    test "tokenizes zero" do
+      assert token_types("<?php 0") == [{:open_tag, "<?php"}, {:integer, 0}]
+    end
+
+    test "tokenizes multi-digit integer" do
+      assert token_types("<?php 12345") == [{:open_tag, "<?php"}, {:integer, 12_345}]
+    end
+  end
+
+  describe "float literals" do
+    test "tokenizes simple float" do
+      assert token_types("<?php 3.14") == [{:open_tag, "<?php"}, {:float, 3.14}]
+    end
+
+    test "tokenizes float with leading zero" do
+      assert token_types("<?php 0.5") == [{:open_tag, "<?php"}, {:float, 0.5}]
+    end
+  end
 end
