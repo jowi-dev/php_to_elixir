@@ -180,6 +180,15 @@ defmodule PhpToElixir.Emitter do
     "!#{code}"
   end
 
+  # Normalize PHP strict equality/inequality to Elixir == / !=
+  def emit_expr({:binary_op, :===, left, right}) do
+    "#{emit_expr(left)} == #{emit_expr(right)}"
+  end
+
+  def emit_expr({:binary_op, :!==, left, right}) do
+    "#{emit_expr(left)} != #{emit_expr(right)}"
+  end
+
   def emit_expr({:binary_op, op, left, right}) do
     "#{emit_expr(left)} #{op} #{emit_expr(right)}"
   end

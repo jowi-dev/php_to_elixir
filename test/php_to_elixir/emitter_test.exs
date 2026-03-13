@@ -112,18 +112,18 @@ defmodule PhpToElixir.EmitterTest do
       assert Emitter.emit(ast) == {:ok, ~s(x != "y")}
     end
 
-    test "emits strict equality" do
+    test "normalizes strict equality === to ==" do
       ast =
         {:program, [{:expr_statement, {:binary_op, :===, {:variable, "x"}, {:string, "y"}}}]}
 
-      assert Emitter.emit(ast) == {:ok, ~s(x === "y")}
+      assert Emitter.emit(ast) == {:ok, ~s(x == "y")}
     end
 
-    test "emits strict inequality" do
+    test "normalizes strict inequality !== to !=" do
       ast =
         {:program, [{:expr_statement, {:binary_op, :!==, {:variable, "x"}, {:string, "y"}}}]}
 
-      assert Emitter.emit(ast) == {:ok, ~s(x !== "y")}
+      assert Emitter.emit(ast) == {:ok, ~s(x != "y")}
     end
 
     test "emits logical and" do
