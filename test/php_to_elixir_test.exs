@@ -105,5 +105,19 @@ defmodule PhpToElixirTest do
       assert code =~ ~s|"email"|
       assert code =~ "Map.put"
     end
+
+    test "end-to-end in_array with array() constructor" do
+      php = ~s|<?php if (in_array($x, array('a', 'b', 'c'))) { $our['found'] = 'yes'; }|
+      {:ok, code} = PhpToElixir.transpile(php)
+      assert code =~ "Enum.member?"
+      assert code =~ ~s|["a", "b", "c"]|
+    end
+
+    test "end-to-end array() with key-value pairs" do
+      php = ~s|<?php $x = array('key' => 'val', 'k2' => 'v2');|
+      {:ok, code} = PhpToElixir.transpile(php)
+      assert code =~ "%{"
+      assert code =~ ~s|"key" => "val"|
+    end
   end
 end
