@@ -168,6 +168,18 @@ defmodule PhpToElixir.Emitter do
     "#{emit_concat_operand(left)} <> #{emit_concat_operand(right)}"
   end
 
+  # strpos($h, $n) !== false → String.contains?(h, n)
+  def emit_expr({:binary_op, :!==, {:function_call, "strpos", args}, {:boolean, false}}) do
+    {:ok, code} = PhpToElixir.Builtins.translate("strpos", args)
+    code
+  end
+
+  # strpos($h, $n) === false → !String.contains?(h, n)
+  def emit_expr({:binary_op, :===, {:function_call, "strpos", args}, {:boolean, false}}) do
+    {:ok, code} = PhpToElixir.Builtins.translate("strpos", args)
+    "!#{code}"
+  end
+
   def emit_expr({:binary_op, op, left, right}) do
     "#{emit_expr(left)} #{op} #{emit_expr(right)}"
   end

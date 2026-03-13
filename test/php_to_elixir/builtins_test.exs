@@ -99,6 +99,11 @@ defmodule PhpToElixir.BuiltinsTest do
                {:ok, "Regex.match?(~r/email/i, s)"}
     end
 
+    test "strpos" do
+      assert Builtins.translate("strpos", [{:variable, "h"}, {:string, "n"}]) ==
+               {:ok, ~s|String.contains?(h, "n")|}
+    end
+
     test "unknown returns :unknown" do
       assert Builtins.translate("custom_func", [{:variable, "x"}]) == :unknown
     end

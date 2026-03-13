@@ -157,6 +157,32 @@ defmodule PhpToElixir.EmitterTest do
     end
   end
 
+  describe "strpos !== false collapse" do
+    test "strpos !== false collapses to String.contains?" do
+      ast =
+        {:program,
+         [
+           {:expr_statement,
+            {:binary_op, :!==, {:function_call, "strpos", [{:variable, "h"}, {:string, "n"}]},
+             {:boolean, false}}}
+         ]}
+
+      assert Emitter.emit(ast) == {:ok, ~s|String.contains?(h, "n")|}
+    end
+
+    test "strpos === false collapses to !String.contains?" do
+      ast =
+        {:program,
+         [
+           {:expr_statement,
+            {:binary_op, :===, {:function_call, "strpos", [{:variable, "h"}, {:string, "n"}]},
+             {:boolean, false}}}
+         ]}
+
+      assert Emitter.emit(ast) == {:ok, ~s|!String.contains?(h, "n")|}
+    end
+  end
+
   describe "unary not" do
     test "emits unary not" do
       ast = {:program, [{:expr_statement, {:unary_op, :!, {:variable, "a"}}}]}
