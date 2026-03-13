@@ -109,4 +109,26 @@ defmodule PhpToElixir.LexerTest do
       assert token_types("<?php 0.5") == [{:open_tag, "<?php"}, {:float, 0.5}]
     end
   end
+
+  describe "single-quoted strings" do
+    test "tokenizes simple single-quoted string" do
+      assert token_types("<?php 'hello'") == [{:open_tag, "<?php"}, {:string, "hello"}]
+    end
+
+    test "tokenizes empty single-quoted string" do
+      assert token_types("<?php ''") == [{:open_tag, "<?php"}, {:string, ""}]
+    end
+
+    test "handles escaped single quote" do
+      assert token_types("<?php 'it\\'s'") == [{:open_tag, "<?php"}, {:string, "it's"}]
+    end
+
+    test "handles escaped backslash" do
+      assert token_types("<?php 'path\\\\'") == [{:open_tag, "<?php"}, {:string, "path\\"}]
+    end
+
+    test "treats $ as literal in single-quoted strings" do
+      assert token_types("<?php '$notavar'") == [{:open_tag, "<?php"}, {:string, "$notavar"}]
+    end
+  end
 end

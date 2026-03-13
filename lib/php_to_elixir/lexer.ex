@@ -91,6 +91,18 @@ defmodule PhpToElixir.Lexer do
     end
   end
 
+  # Single-quoted string
+  defp do_tokenize(<<?\', rest::binary>>, line, col, acc) do
+    case scan_single_quoted_string(rest, line, col + 1, "") do
+      {:ok, value, rest, new_line, new_col} ->
+        token = %Token{type: :string, value: value, line: line, col: col}
+        do_tokenize(rest, new_line, new_col, [token | acc])
+
+      {:error, _reason} = error ->
+        error
+    end
+  end
+
   # Catch-all: unexpected character
   defp do_tokenize(<<c::utf8, _rest::binary>>, line, col, _acc) do
     {:error, "Unexpected character '#{<<c::utf8>>}' at line #{line}, col #{col}"}
@@ -123,4 +135,29 @@ defmodule PhpToElixir.Lexer do
   end
 
   defp scan_digits(rest, acc), do: {acc, rest}
+
+  # Single-quoted string: only \' and \\ are escape sequences
+  defp scan_single_quoted_string(<<?\\, ?\', rest::binary>>, line, col, acc) do
+    scan_single_quoted_string(rest, line, col + 2, acc <> "'")
+  end
+
+  defp scan_single_quoted_string(<<?\\, ?\\, rest::binary>>, line, col, acc) do
+    scan_single_quoted_string(rest, line, col + 2, acc <> "\\")
+  end
+
+  defp scan_single_quoted_string(<<?\', rest::binary>>, line, col, acc) do
+    {:ok, acc, rest, line, col + 1}
+  end
+
+  defp scan_single_quoted_string(<<?\n, rest::binary>>, line, _col, acc) do
+    scan_single_quoted_string(rest, line + 1, 1, acc <> "\n")
+  end
+
+  defp scan_single_quoted_string(<<c::utf8, rest::binary>>, line, col, acc) do
+    scan_single_quoted_string(rest, line, col + 1, acc <> <<c::utf8>>)
+  end
+
+  defp scan_single_quoted_string(<<>>, line, col, _acc) do
+    {:error, "Unterminated single-quoted string at line #{line}, col #{col}"}
+  end
 end
