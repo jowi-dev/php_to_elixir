@@ -122,4 +122,79 @@ defmodule PhpToElixir.ParserTest do
                {:array_append, {:variable, "arr"}}
     end
   end
+
+  describe "Step 4: property access" do
+    test "simple property access" do
+      assert parse_expr!("<?php $this->response;") ==
+               {:property_access, {:variable, "this"}, "response"}
+    end
+
+    test "chained property access" do
+      assert parse_expr!("<?php $obj->foo->bar;") ==
+               {:property_access,
+                {:property_access, {:variable, "obj"}, "foo"}, "bar"}
+    end
+
+    test "property access then array access" do
+      assert parse_expr!("<?php $this->data['key'];") ==
+               {:array_access,
+                {:property_access, {:variable, "this"}, "data"}, {:string, "key"}}
+    end
+  end
+
+  describe "Step 5: function calls" do
+    test "function call with arguments" do
+      assert parse_expr!("<?php in_array($x, $arr);") ==
+               {:function_call, "in_array", [{:variable, "x"}, {:variable, "arr"}]}
+    end
+
+    test "isset as function call" do
+      assert parse_expr!("<?php isset($our['key']);") ==
+               {:function_call, "isset", [{:array_access, {:variable, "our"}, {:string, "key"}}]}
+    end
+
+    test "empty as function call" do
+      assert parse_expr!("<?php empty($var);") ==
+               {:function_call, "empty", [{:variable, "var"}]}
+    end
+
+    test "function call with no arguments" do
+      assert parse_expr!("<?php time();") ==
+               {:function_call, "time", []}
+    end
+  end
+
+  describe "Step 6: method calls" do
+    test "simple method call" do
+      assert parse_expr!("<?php $this->method($arg);") ==
+               {:method_call, {:variable, "this"}, "method", [{:variable, "arg"}]}
+    end
+
+    test "method call with no args" do
+      assert parse_expr!("<?php $obj->getAll();") ==
+               {:method_call, {:variable, "obj"}, "getAll", []}
+    end
+
+    test "chained method calls" do
+      assert parse_expr!("<?php $obj->first()->second();") ==
+               {:method_call,
+                {:method_call, {:variable, "obj"}, "first", []}, "second", []}
+    end
+
+    test "method call on array access" do
+      assert parse_expr!("<?php $arr['key']->method();") ==
+               {:method_call,
+                {:array_access, {:variable, "arr"}, {:string, "key"}}, "method", []}
+    end
+
+    test "property vs method distinguished by lparen" do
+      # Without parens -> property access
+      assert parse_expr!("<?php $obj->name;") ==
+               {:property_access, {:variable, "obj"}, "name"}
+
+      # With parens -> method call
+      assert parse_expr!("<?php $obj->name();") ==
+               {:method_call, {:variable, "obj"}, "name", []}
+    end
+  end
 end
