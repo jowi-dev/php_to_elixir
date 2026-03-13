@@ -239,4 +239,19 @@ defmodule PhpToElixir.LexerTest do
                [{:open_tag, "<?php"}, {:else, "else"}, {:variable, "our"}]
     end
   end
+
+  describe "bare identifiers" do
+    test "tokenizes function name with underscore" do
+      assert token_types("<?php in_array") == [{:open_tag, "<?php"}, {:identifier, "in_array"}]
+    end
+
+    test "tokenizes function name with underscore prefix" do
+      assert token_types("<?php preg_match") ==
+               [{:open_tag, "<?php"}, {:identifier, "preg_match"}]
+    end
+
+    test "tokenizes CamelCase identifier" do
+      assert token_types("<?php MyClass") == [{:open_tag, "<?php"}, {:identifier, "MyClass"}]
+    end
+  end
 end
