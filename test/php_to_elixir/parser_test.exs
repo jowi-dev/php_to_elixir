@@ -94,4 +94,32 @@ defmodule PhpToElixir.ParserTest do
                 ]}
     end
   end
+
+  describe "Step 3: array access" do
+    test "single key access" do
+      assert parse_expr!("<?php $our['key'];") ==
+               {:array_access, {:variable, "our"}, {:string, "key"}}
+    end
+
+    test "chained array access" do
+      assert parse_expr!("<?php $our['a']['b'];") ==
+               {:array_access,
+                {:array_access, {:variable, "our"}, {:string, "a"}}, {:string, "b"}}
+    end
+
+    test "integer key access" do
+      assert parse_expr!("<?php $arr[0];") ==
+               {:array_access, {:variable, "arr"}, {:integer, 0}}
+    end
+
+    test "variable key access" do
+      assert parse_expr!("<?php $arr[$key];") ==
+               {:array_access, {:variable, "arr"}, {:variable, "key"}}
+    end
+
+    test "array append" do
+      assert parse_expr!("<?php $arr[];") ==
+               {:array_append, {:variable, "arr"}}
+    end
+  end
 end
