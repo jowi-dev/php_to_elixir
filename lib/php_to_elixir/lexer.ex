@@ -132,6 +132,19 @@ defmodule PhpToElixir.Lexer do
     do_tokenize(rest, line, col + String.length(name), [token | acc])
   end
 
+  # Type casts: (int), (float), (string) — with optional spaces
+  defp do_tokenize(<<?(, rest::binary>> = input, line, col, acc) do
+    case try_scan_cast(rest) do
+      {:ok, cast_type, raw, rest2} ->
+        token = %Token{type: cast_type, value: raw, line: line, col: col}
+        do_tokenize(rest2, line, col + String.length(raw), [token | acc])
+
+      :not_a_cast ->
+        # Will be handled by delimiter matching below
+        do_tokenize_lparen(input, line, col, acc)
+    end
+  end
+
   # --- Operators (longest match first) ---
 
   # Triple-char operators
@@ -371,4 +384,51 @@ defmodule PhpToElixir.Lexer do
   end
 
   defp scan_identifier_chars(rest, acc), do: {acc, rest}
+
+  @cast_types %{
+    "int" => :cast_int,
+    "float" => :cast_float,
+    "string" => :cast_string
+  }
+
+  # Try to scan a type cast after the opening paren.
+  # Handles optional whitespace: ( int ), (int), ( float), etc.
+  defp try_scan_cast(input) do
+    {spaces_before, rest} = scan_optional_spaces(input)
+
+    case scan_identifier_chars(rest, "") do
+      {type_name, rest2} when type_name != "" ->
+        case Map.get(@cast_types, type_name) do
+          nil ->
+            :not_a_cast
+
+          cast_type ->
+            {spaces_after, rest3} = scan_optional_spaces(rest2)
+
+            case rest3 do
+              <<?), rest4::binary>> ->
+                raw = "(" <> spaces_before <> type_name <> spaces_after <> ")"
+                {:ok, cast_type, raw, rest4}
+
+              _ ->
+                :not_a_cast
+            end
+        end
+
+      _ ->
+        :not_a_cast
+    end
+  end
+
+  defp scan_optional_spaces(input), do: scan_optional_spaces(input, "")
+
+  defp scan_optional_spaces(<<?\s, rest::binary>>, acc),
+    do: scan_optional_spaces(rest, acc <> " ")
+
+  defp scan_optional_spaces(rest, acc), do: {acc, rest}
+
+  defp do_tokenize_lparen(<<?(, rest::binary>>, line, col, acc) do
+    token = %Token{type: :lparen, value: "(", line: line, col: col}
+    do_tokenize(rest, line, col + 1, [token | acc])
+  end
 end

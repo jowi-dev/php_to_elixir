@@ -287,4 +287,29 @@ defmodule PhpToElixir.LexerTest do
       assert types == [:open_tag, :strict_eq]
     end
   end
+
+  describe "type cast operators" do
+    test "tokenizes (int) cast" do
+      assert token_types("<?php (int)") == [{:open_tag, "<?php"}, {:cast_int, "(int)"}]
+    end
+
+    test "tokenizes (float) cast" do
+      assert token_types("<?php (float)") == [{:open_tag, "<?php"}, {:cast_float, "(float)"}]
+    end
+
+    test "tokenizes (string) cast" do
+      assert token_types("<?php (string)") ==
+               [{:open_tag, "<?php"}, {:cast_string, "(string)"}]
+    end
+
+    test "(int) followed by variable tokenizes correctly" do
+      assert token_types("<?php (int)$x") ==
+               [{:open_tag, "<?php"}, {:cast_int, "(int)"}, {:variable, "x"}]
+    end
+
+    test "(int) with spaces inside" do
+      assert token_types("<?php ( int )") ==
+               [{:open_tag, "<?php"}, {:cast_int, "( int )"}]
+    end
+  end
 end
