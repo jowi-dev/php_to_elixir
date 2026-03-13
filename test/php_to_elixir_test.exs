@@ -97,5 +97,13 @@ defmodule PhpToElixirTest do
       assert code =~ "x == 2"
       assert code =~ "true ->"
     end
+
+    test "end-to-end with !empty() guard" do
+      php = ~s|<?php if (!empty($our['email'])) { $our['valid'] = 'yes'; }|
+      {:ok, code} = PhpToElixir.transpile(php)
+      assert code =~ "!"
+      assert code =~ ~s|"email"|
+      assert code =~ "Map.put"
+    end
   end
 end

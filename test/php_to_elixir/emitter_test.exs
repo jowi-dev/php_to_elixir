@@ -301,6 +301,33 @@ defmodule PhpToElixir.EmitterTest do
       assert Emitter.emit(ast) == {:ok, ~s|(var == nil or var == "" or var == [])|}
     end
 
+    test "emits !empty() with negation" do
+      ast =
+        {:program,
+         [
+           {:expr_statement,
+            {:unary_op, :!,
+             {:function_call, "empty", [{:array_access, {:variable, "our"}, {:string, "name"}}]}}}
+         ]}
+
+      {:ok, code} = Emitter.emit(ast)
+      assert code =~ "!"
+      assert code =~ ~s|our["name"]|
+    end
+
+    test "emits empty() with nested array access" do
+      ast =
+        {:program,
+         [
+           {:expr_statement,
+            {:function_call, "empty", [{:array_access, {:variable, "data"}, {:string, "field"}}]}}
+         ]}
+
+      {:ok, code} = Emitter.emit(ast)
+      assert code =~ ~s|data["field"] == nil|
+      assert code =~ ~s|data["field"] == ""|
+    end
+
     test "emits in_array with flipped args" do
       ast =
         {:program,
