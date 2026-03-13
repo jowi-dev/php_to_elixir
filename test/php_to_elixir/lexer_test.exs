@@ -131,4 +131,57 @@ defmodule PhpToElixir.LexerTest do
       assert token_types("<?php '$notavar'") == [{:open_tag, "<?php"}, {:string, "$notavar"}]
     end
   end
+
+  describe "double-quoted strings" do
+    test "tokenizes simple double-quoted string" do
+      assert token_types(~s(<?php "hello")) == [{:open_tag, "<?php"}, {:string, "hello"}]
+    end
+
+    test "tokenizes empty double-quoted string" do
+      assert token_types(~s(<?php "")) == [{:open_tag, "<?php"}, {:string, ""}]
+    end
+
+    test "handles \\n escape sequence" do
+      assert token_types(~s(<?php "line\\n")) == [{:open_tag, "<?php"}, {:string, "line\n"}]
+    end
+
+    test "handles \\t escape sequence" do
+      assert token_types(~s(<?php "col\\t")) == [{:open_tag, "<?php"}, {:string, "col\t"}]
+    end
+
+    test "handles \\\\ escape sequence" do
+      assert token_types(~s(<?php "path\\\\")) == [{:open_tag, "<?php"}, {:string, "path\\"}]
+    end
+
+    test "handles escaped double quote" do
+      assert token_types(~s(<?php "say \\"hi\\"")) ==
+               [{:open_tag, "<?php"}, {:string, ~s(say "hi")}]
+    end
+
+    test "handles \\$ escape (literal dollar)" do
+      assert token_types(~s(<?php "cost \\$5")) ==
+               [{:open_tag, "<?php"}, {:string, "cost $5"}]
+    end
+
+    test "tokenizes interpolated string with {$var}" do
+      assert token_types(~s(<?php "hello {$name}")) ==
+               [{:open_tag, "<?php"}, {:interpolated_string, ["hello ", {:variable, "name"}]}]
+    end
+
+    test "tokenizes interpolated string with multiple variables" do
+      assert token_types(~s(<?php "{$first} {$last}")) ==
+               [
+                 {:open_tag, "<?php"},
+                 {:interpolated_string, [{:variable, "first"}, " ", {:variable, "last"}]}
+               ]
+    end
+
+    test "tokenizes interpolated string with text before and after" do
+      assert token_types(~s(<?php "Hello {$name}!")) ==
+               [
+                 {:open_tag, "<?php"},
+                 {:interpolated_string, ["Hello ", {:variable, "name"}, "!"]}
+               ]
+    end
+  end
 end

@@ -103,6 +103,18 @@ defmodule PhpToElixir.Lexer do
     end
   end
 
+  # Double-quoted string
+  defp do_tokenize(<<?\", rest::binary>>, line, col, acc) do
+    case scan_double_quoted_string(rest, line, col + 1, []) do
+      {:ok, parts, rest, new_line, new_col} ->
+        token = build_string_token(parts, line, col)
+        do_tokenize(rest, new_line, new_col, [token | acc])
+
+      {:error, _reason} = error ->
+        error
+    end
+  end
+
   # Catch-all: unexpected character
   defp do_tokenize(<<c::utf8, _rest::binary>>, line, col, _acc) do
     {:error, "Unexpected character '#{<<c::utf8>>}' at line #{line}, col #{col}"}
@@ -160,4 +172,91 @@ defmodule PhpToElixir.Lexer do
   defp scan_single_quoted_string(<<>>, line, col, _acc) do
     {:error, "Unterminated single-quoted string at line #{line}, col #{col}"}
   end
+
+  # Double-quoted string scanning
+  # Accumulates a list of parts: strings and {:variable, name} tuples
+
+  # Closing quote
+  defp scan_double_quoted_string(<<?\", rest::binary>>, line, col, parts) do
+    {:ok, finalize_string_parts(parts), rest, line, col + 1}
+  end
+
+  # Escape sequences
+  defp scan_double_quoted_string(<<?\\, ?n, rest::binary>>, line, col, parts) do
+    scan_double_quoted_string(rest, line, col + 2, add_char_to_parts(parts, "\n"))
+  end
+
+  defp scan_double_quoted_string(<<?\\, ?t, rest::binary>>, line, col, parts) do
+    scan_double_quoted_string(rest, line, col + 2, add_char_to_parts(parts, "\t"))
+  end
+
+  defp scan_double_quoted_string(<<?\\, ?r, rest::binary>>, line, col, parts) do
+    scan_double_quoted_string(rest, line, col + 2, add_char_to_parts(parts, "\r"))
+  end
+
+  defp scan_double_quoted_string(<<?\\, ?\\, rest::binary>>, line, col, parts) do
+    scan_double_quoted_string(rest, line, col + 2, add_char_to_parts(parts, "\\"))
+  end
+
+  defp scan_double_quoted_string(<<?\\, ?\", rest::binary>>, line, col, parts) do
+    scan_double_quoted_string(rest, line, col + 2, add_char_to_parts(parts, "\""))
+  end
+
+  defp scan_double_quoted_string(<<?\\, ?$, rest::binary>>, line, col, parts) do
+    scan_double_quoted_string(rest, line, col + 2, add_char_to_parts(parts, "$"))
+  end
+
+  # Interpolation: {$variable}
+  defp scan_double_quoted_string(<<?{, ?$, rest::binary>>, line, col, parts) do
+    {name, rest2} = scan_identifier_chars(rest, "")
+    <<?\}, rest3::binary>> = rest2
+    new_parts = [{:variable, name} | parts]
+    # { + $ + name + }
+    scan_double_quoted_string(rest3, line, col + 2 + String.length(name) + 1, new_parts)
+  end
+
+  # Newline inside double-quoted string
+  defp scan_double_quoted_string(<<?\n, rest::binary>>, line, _col, parts) do
+    scan_double_quoted_string(rest, line + 1, 1, add_char_to_parts(parts, "\n"))
+  end
+
+  # Regular character
+  defp scan_double_quoted_string(<<c::utf8, rest::binary>>, line, col, parts) do
+    scan_double_quoted_string(rest, line, col + 1, add_char_to_parts(parts, <<c::utf8>>))
+  end
+
+  defp scan_double_quoted_string(<<>>, line, col, _parts) do
+    {:error, "Unterminated double-quoted string at line #{line}, col #{col}"}
+  end
+
+  # Add a character to the current string segment in parts accumulator
+  defp add_char_to_parts([str | rest], char) when is_binary(str), do: [str <> char | rest]
+  defp add_char_to_parts(parts, char), do: [char | parts]
+
+  # Finalize parts: reverse and merge adjacent strings
+  defp finalize_string_parts(parts) do
+    parts
+    |> Enum.reverse()
+    |> Enum.reject(&(&1 == ""))
+  end
+
+  # Build appropriate token based on parts
+  defp build_string_token([], line, col) do
+    %Token{type: :string, value: "", line: line, col: col}
+  end
+
+  defp build_string_token([single_string], line, col) when is_binary(single_string) do
+    %Token{type: :string, value: single_string, line: line, col: col}
+  end
+
+  defp build_string_token(parts, line, col) do
+    %Token{type: :interpolated_string, value: parts, line: line, col: col}
+  end
+
+  defp scan_identifier_chars(<<c, rest::binary>>, acc)
+       when c in ?a..?z or c in ?A..?Z or c in ?0..?9 or c == ?_ do
+    scan_identifier_chars(rest, acc <> <<c>>)
+  end
+
+  defp scan_identifier_chars(rest, acc), do: {acc, rest}
 end
