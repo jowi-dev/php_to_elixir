@@ -511,4 +511,25 @@ defmodule PhpToElixir.EmitterTest do
       assert code =~ "true ->"
     end
   end
+
+  # --- Layer 5: Integration ---
+
+  describe "multi-statement program" do
+    test "emits sequential our mutations" do
+      ast =
+        {:program,
+         [
+           {:assign, {:array_access, {:variable, "our"}, {:string, "a"}}, {:string, "1"}},
+           {:assign, {:array_access, {:variable, "our"}, {:string, "b"}}, {:string, "2"}},
+           {:assign, {:array_access, {:variable, "our"}, {:string, "c"}}, {:string, "3"}}
+         ]}
+
+      {:ok, code} = Emitter.emit(ast)
+      lines = String.split(code, "\n")
+      assert length(lines) == 3
+      assert Enum.at(lines, 0) =~ ~s|Map.put(our, "a", "1")|
+      assert Enum.at(lines, 1) =~ ~s|Map.put(our, "b", "2")|
+      assert Enum.at(lines, 2) =~ ~s|Map.put(our, "c", "3")|
+    end
+  end
 end

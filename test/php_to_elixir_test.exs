@@ -2,7 +2,67 @@ defmodule PhpToElixirTest do
   use ExUnit.Case
   doctest PhpToElixir
 
-  test "greets the world" do
-    assert PhpToElixir.hello() == :world
+  describe "transpile/1" do
+    test "simple assignment" do
+      assert PhpToElixir.transpile("<?php $x = 42;") == {:ok, "x = 42\n"}
+    end
+
+    test "returns error for invalid PHP" do
+      assert {:error, _reason} = PhpToElixir.transpile("<?php $x = ;")
+    end
+
+    test "end-to-end with if and function calls" do
+      php = """
+      <?php
+      $our['status'] = 'pending';
+      if ($our['type'] == 'rush') {
+        $our['status'] = 'urgent';
+      }
+      """
+
+      {:ok, code} = PhpToElixir.transpile(php)
+      assert code =~ "Map.put"
+      assert code =~ "our"
+      assert code =~ "if"
+    end
+
+    test "end-to-end with foreach" do
+      php = """
+      <?php
+      foreach ($items as $k => $v) {
+        $our[$k] = $v;
+      }
+      """
+
+      {:ok, code} = PhpToElixir.transpile(php)
+      assert code =~ "Enum.reduce"
+      assert code =~ "items"
+    end
+
+    test "end-to-end with built-in function" do
+      php = ~s|<?php $x = strtolower($name);|
+
+      {:ok, code} = PhpToElixir.transpile(php)
+      assert code =~ "String.downcase"
+    end
+
+    test "end-to-end with elseif chain" do
+      php = """
+      <?php
+      if ($x == 1) {
+        $our['r'] = 'a';
+      } elseif ($x == 2) {
+        $our['r'] = 'b';
+      } else {
+        $our['r'] = 'c';
+      }
+      """
+
+      {:ok, code} = PhpToElixir.transpile(php)
+      assert code =~ "cond do"
+      assert code =~ "x == 1"
+      assert code =~ "x == 2"
+      assert code =~ "true ->"
+    end
   end
 end
